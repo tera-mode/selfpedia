@@ -19,7 +19,7 @@ AIインタビュワーがユーザーを有名人のようにインタビュー
 | スタイリング | Tailwind CSS 4 |
 | データベース | Firebase Firestore |
 | ストレージ | Firebase Storage |
-| 認証 | Firebase Auth (Google, Email/Password) |
+| 認証 | Firebase Auth (Google, Email/Password, Anonymous) |
 | ホスティング | Vercel |
 | AI | Gemini API (gemini-2.0-flash-exp) |
 | メール送信 | Brevo (Phase 2以降) |
@@ -63,6 +63,7 @@ GEMINI_API_KEY=your_gemini_api_key
 3. **Authentication** → **Sign-in method** で以下を有効化：
    - Google認証
    - Email/Password認証
+   - 匿名認証（ゲストユーザー用）
 
 #### Firestore設定
 1. **Firestore Database** を作成
@@ -145,27 +146,31 @@ your-interviewer/
 
 ```
 [1] LP表示
-    ├─ ゲスト利用 → Cookie でセッション管理
+    ├─ ゲスト利用 → Firebase匿名認証で自動ログイン
     └─ ログイン利用 → Firebase Auth (Google / Email+Password)
     ↓
 [2] インタビュワー選択
     ├─ 女性インタビュワー（あかり）
     └─ 男性インタビュワー（けんと）
     ↓
-[3] AIチャットインタビュー
-    ├─ 基本情報の収集（固定key: 名前、年齢、職業など）
-    └─ 7つの質問（5〜10ターンで終了）
+[3] AIチャットインタビュー（14ステップ）
+    ├─ Phase 1: 基本情報の収集（固定7ステップ）
+    │   └─ 名前、ニックネーム、性別、年齢、居住地、職業、職業詳細
+    └─ Phase 2: 深掘り質問（動的7ステップ）
+        └─ AIが生成する個別最適化された質問
     ↓
-[4] アウトプット生成
+[4] Firestore保存（全ユーザー共通）
+    ├─ インタビュー完了時に自動保存
+    └─ 保存されたIDで結果ページにリダイレクト
+    ↓
+[5] アウトプット生成・表示
     ├─ インタビュー記事（800〜1500字）
-    └─ （Phase 2: 自己PR、マッチングプロフィール、SNSプロフィール）
-    ↓
-[5] 結果表示
     ├─ 記事のコピー機能
-    └─ ログインユーザー: Firestoreに自動保存
+    └─ （Phase 2-2: 自己PR、マッチングプロフィール、SNSプロフィール）
     ↓
 [6] マイページ（ログインユーザーのみ）
-    └─ 過去のインタビュー一覧
+    ├─ 過去のインタビュー一覧
+    └─ インタビュー詳細表示
 ```
 
 ## データ構造
@@ -186,6 +191,22 @@ interface FixedUserData {
 ```
 
 **職業カテゴリ**: 会社員、経営者、自営業、公務員、フリーランス、主婦/主夫、学生（小学生〜大学院生）、無職、その他
+
+### 深掘り情報（動的データ）
+
+```typescript
+interface DynamicDataItem {
+  question: string;   // AIが生成した質問
+  answer: string;     // ユーザーの回答
+  category: string;   // AIが自動分類したカテゴリ
+}
+
+interface DynamicData {
+  [key: string]: DynamicDataItem;  // dynamic_1, dynamic_2, ...
+}
+```
+
+**カテゴリ例**: 趣味・ライフスタイル、価値観・仕事、エピソード・経験、将来の目標・夢、人間関係、その他
 
 ### Firestoreデータ構造
 
@@ -276,14 +297,31 @@ interface FixedUserData {
 }
 ```
 
-### GET /api/get-interviews?userId={userId}
+### GET /api/get-user-interviews?userId={userId}
 
-ユーザーのインタビュー一覧を取得
+ユーザーのインタビュー一覧を取得（ログインユーザーのみ）
 
 **Response:**
 ```json
 {
+  "success": boolean,
   "interviews": Interview[]
+}
+```
+
+### GET /api/get-interview?id={interviewId}
+
+インタビューデータをIDで取得
+
+**Response:**
+```json
+{
+  "success": boolean,
+  "data": {
+    "fixed": FixedUserData,
+    "dynamic": DynamicData
+  },
+  "interview": InterviewSession
 }
 ```
 
@@ -317,26 +355,33 @@ interface FixedUserData {
 - 公開リポジトリにコミットしない
 - Firebaseサービスアカウント鍵は絶対に公開しない
 
-## 実装済み機能（Phase 1 完了）
+## 実装済み機能
 
-### ✅ 完成
+### ✅ Phase 1 完了
 - [x] LPページ
 - [x] ログイン機能（Google、Email/Password）
 - [x] インタビュワー選択ページ
-- [x] インタビューページ（チャットUI）
+- [x] インタビューページ（チャットUI、基本7ステップ）
 - [x] 結果ページ（インタビュー記事生成）
-- [x] Firestore連携（ログインユーザーのデータ保存）
-- [x] マイページ（過去のインタビュー一覧）
+- [x] Firestore連携（全ユーザーのデータ保存）
 - [x] 認証コンテキスト（AuthContext）
 
-### 📋 Phase 2（予定）
-- [ ] 深掘りインタビュー（変動key収集）
+### ✅ Phase 2-1 完了（深掘りインタビュー機能）
+- [x] Firebase匿名認証（ゲストユーザー自動ログイン）
+- [x] 深掘り質問機能（AIが動的に7つの質問を生成）
+- [x] カテゴリ自動分類（AIが質問を6つのカテゴリに分類）
+- [x] Firestore直接保存方式（Cookie依存からの脱却）
+- [x] URLパラメータでの結果表示（/result?id={interviewId}）
+- [x] マイページ（過去のインタビュー一覧）
+- [x] インタビュー詳細ページ（/mypage/interview/[id]）
+
+### 📋 Phase 2-2（予定）
 - [ ] 4種類のアウトプット生成
   - [ ] 自己PR文（300〜400字）
   - [ ] マッチングアプリ用プロフィール（200〜300字）
   - [ ] SNSプロフィール（50〜100字）
-- [ ] インタビュー詳細ページ（/mypage/interview/[id]）
-- [ ] シェア機能
+- [ ] タブUIで複数アウトプット切り替え表示
+- [ ] シェア機能（Twitter、LINE、URL公開リンク）
 
 ### 📋 Phase 3（予定）
 - [ ] メール送信機能（Brevo）
@@ -378,16 +423,19 @@ npm run dev
 ## よくある質問
 
 ### Q: ゲストユーザーのデータはどこに保存される？
-A: Cookieに保存されます。Cookieを削除するとデータが消失します。
+A: Firebase匿名認証で自動ログインし、Firestoreに保存されます。ブラウザのキャッシュをクリアすると匿名ユーザーIDが失われ、過去のデータにアクセスできなくなります。
 
 ### Q: ログインユーザーのデータは？
-A: Firestoreに永続的に保存され、マイページでいつでも確認できます。
+A: Firestoreに永続的に保存され、マイページでいつでも確認できます。複数デバイスからアクセス可能です。
 
 ### Q: インタビューは何回まで実施できる？
-A: 制限なし。ログインユーザーは全て保存され、マイページで確認可能。
+A: 制限なし。全てのインタビューがFirestoreに保存されます。ログインユーザーはマイページで全ての履歴を確認可能。
+
+### Q: 深掘り質問はどう決まる？
+A: AIが基本情報とこれまでの回答を分析し、ユーザーの魅力を引き出す質問を動的に生成します。
 
 ### Q: 記事の再生成はできる？
-A: 現在（Phase 1）は不可。Phase 3で再編集機能を実装予定。
+A: 現在（Phase 2-1）は不可。Phase 3で再編集機能を実装予定。
 
 ## ライセンス
 

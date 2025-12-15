@@ -8,7 +8,7 @@ import { useState } from 'react';
 
 export default function Home() {
   const router = useRouter();
-  const { signInAsGuest } = useAuth();
+  const { user, signInAsGuest } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGuestStart = async () => {
@@ -41,6 +41,18 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white px-4 py-12">
+      {/* マイページボタン（ログインユーザーのみ） */}
+      {user && !user.isAnonymous && (
+        <div className="absolute right-4 top-4">
+          <button
+            onClick={() => router.push('/mypage')}
+            className="rounded-full bg-purple-600 px-6 py-3 font-semibold text-white transition-all hover:bg-purple-700"
+          >
+            マイページ
+          </button>
+        </div>
+      )}
+
       <main className="flex w-full max-w-4xl flex-col items-center gap-12 text-center">
         {/* ヘッダー */}
         <div className="flex flex-col gap-4">

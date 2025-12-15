@@ -3,17 +3,28 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getInterviewer } from '@/lib/interviewers';
+import { InterviewerId } from '@/types';
 
 interface Interview {
   id: string;
-  interviewerId: string;
-  createdAt: string;
+  userId: string;
+  interviewerId: InterviewerId;
   data: {
     fixed: {
-      name?: string;
-      nickname?: string;
+      name: string;
+      nickname: string;
+      gender: string;
+      age: number;
+      location: string;
+      occupation: string;
+      occupationDetail: string;
     };
+    dynamic?: any;
   };
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function MyPage() {
@@ -23,14 +34,22 @@ export default function MyPage() {
   const [isLoadingInterviews, setIsLoadingInterviews] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    if (!user) {
+      // ログインしていない場合はログインページへ
       router.push('/login');
       return;
     }
 
-    if (user) {
-      fetchInterviews();
+    // 匿名ユーザーの場合はマイページにアクセスできない
+    if (user.isAnonymous) {
+      alert('マイページはログインユーザーのみアクセスできます。');
+      router.push('/');
+      return;
     }
+
+    fetchInterviews();
   }, [user, loading, router]);
 
   const fetchInterviews = async () => {
@@ -38,13 +57,21 @@ export default function MyPage() {
 
     setIsLoadingInterviews(true);
     try {
-      const response = await fetch(`/api/get-interviews?userId=${user.uid}`);
-      if (response.ok) {
-        const data = await response.json();
-        setInterviews(data.interviews);
+      console.log('Loading interviews for user:', user.uid);
+
+      const response = await fetch(`/api/get-user-interviews?userId=${user.uid}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to load interviews');
       }
+
+      const result = await response.json();
+      console.log('Interviews loaded:', result.interviews);
+
+      setInterviews(result.interviews);
     } catch (error) {
-      console.error('Error fetching interviews:', error);
+      console.error('Error loading interviews:', error);
+      alert('インタビュー一覧の読み込みに失敗しました。');
     } finally {
       setIsLoadingInterviews(false);
     }
@@ -119,33 +146,81 @@ export default function MyPage() {
               </button>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {interviews.map((interview) => (
-                <div
-                  key={interview.id}
-                  className="cursor-pointer rounded-xl border border-gray-200 p-6 transition-all hover:border-purple-300 hover:shadow-md"
-                  onClick={() => router.push(`/mypage/interview/${interview.id}`)}
-                >
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-500">
-                      {new Date(interview.createdAt).toLocaleDateString('ja-JP', {
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {interviews.map((interview) => {
+                const interviewer = getInterviewer(interview.interviewerId);
+                const date = new Date(interview.createdAt);
+
+                return (
+                  <div
+                    key={interview.id}
+                    className="cursor-pointer rounded-xl border-2 border-gray-200 bg-white p-6 transition-all hover:border-purple-600 hover:shadow-lg"
+                    onClick={() => router.push(`/mypage/interview/${interview.id}`)}
+                  >
+                    {/* 日付 */}
+                    <div className="mb-3 text-sm text-gray-500">
+                      {date.toLocaleDateString('ja-JP', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
                       })}
-                    </p>
+                    </div>
+
+                    {/* インタビュワー */}
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-2xl">
+                        {interviewer?.gender === '女性' ? '👩' : '👨'}
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">
+                          インタビュワー
+                        </p>
+                        <p className="font-semibold text-gray-800">
+                          {interviewer?.name || 'Unknown'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 基本情報 */}
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-sm font-semibold text-gray-700">
+                          名前:
+                        </span>{' '}
+                        <span className="text-sm text-gray-600">
+                          {interview.data.fixed.name}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-gray-700">
+                          職業:
+                        </span>{' '}
+                        <span className="text-sm text-gray-600">
+                          {interview.data.fixed.occupation}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-gray-700">
+                          深掘り質問:
+                        </span>{' '}
+                        <span className="text-sm text-gray-600">
+                          {interview.data.dynamic
+                            ? Object.keys(interview.data.dynamic).length
+                            : 0}
+                          件
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 詳細を見るボタン */}
+                    <div className="mt-4 text-center">
+                      <span className="text-sm font-semibold text-purple-600">
+                        詳細を見る →
+                      </span>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {interview.data?.fixed?.name || '名前なし'}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    {interview.data?.fixed?.nickname || ''}
-                  </p>
-                  <div className="mt-4 text-sm text-purple-600">
-                    詳細を見る →
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
