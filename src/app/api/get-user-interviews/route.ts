@@ -15,19 +15,23 @@ export async function GET(request: NextRequest) {
 
     console.log('Fetching interviews for user:', userId);
 
-    // Firestoreからユーザーのインタビュー一覧を取得（新しい順）
+    // Firestoreからユーザーのインタビュー一覧を取得
     const interviewsSnapshot = await adminDb
       .collection('interviews')
       .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
       .get();
 
-    const interviews = interviewsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate().toISOString(),
-      updatedAt: doc.data().updatedAt?.toDate().toISOString(),
-    }));
+    const interviews = interviewsSnapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate().toISOString(),
+        updatedAt: doc.data().updatedAt?.toDate().toISOString(),
+      }))
+      .sort((a, b) => {
+        // クライアントサイドで新しい順にソート
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
 
     console.log(`Found ${interviews.length} interviews for user ${userId}`);
 

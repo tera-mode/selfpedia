@@ -24,8 +24,8 @@ export default function Home() {
       Cookies.set('guest_session_id', sessionId, { expires: 30, path: '/' }); // 30日間有効
       console.log('Guest session ID created:', sessionId);
 
-      // インタビュワー選択画面へ遷移
-      router.push('/select-interviewer');
+      // HOMEページへ遷移
+      router.push('/home');
     } catch (error) {
       console.error('Failed to start as guest:', error);
       alert('ゲストとして開始できませんでした。もう一度お試しください。');

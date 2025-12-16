@@ -117,7 +117,10 @@ your-interviewer/
 │   │   │   ├── chat/             # チャット処理
 │   │   │   ├── generate-article/ # 記事生成
 │   │   │   ├── save-interview/   # インタビュー保存
-│   │   │   └── get-interviews/   # インタビュー取得
+│   │   │   ├── save-interviewer-name/ # インタビュワー名保存
+│   │   │   ├── get-interviews/   # インタビュー取得
+│   │   │   └── get-user-interviews/ # ユーザーのインタビュー一覧取得
+│   │   ├── home/                 # HOMEページ（ログイン後起点）
 │   │   ├── login/                # ログインページ
 │   │   ├── select-interviewer/   # インタビュワー選択
 │   │   ├── interview/            # インタビューページ
@@ -126,6 +129,8 @@ your-interviewer/
 │   │   ├── page.tsx              # LPページ
 │   │   ├── layout.tsx            # ルートレイアウト
 │   │   └── providers.tsx         # プロバイダー設定
+│   ├── components/               # 共通コンポーネント
+│   │   └── UserHeader.tsx        # ユーザーヘッダー
 │   ├── contexts/                 # React Context
 │   │   └── AuthContext.tsx       # 認証コンテキスト
 │   ├── lib/                      # ライブラリ・ユーティリティ
@@ -145,32 +150,38 @@ your-interviewer/
 ## ユーザーフロー
 
 ```
-[1] LP表示
+[1] LP表示（/）
     ├─ ゲスト利用 → Firebase匿名認証で自動ログイン
     └─ ログイン利用 → Firebase Auth (Google / Email+Password)
     ↓
-[2] インタビュワー選択
-    ├─ 女性インタビュワー（あかり）
-    └─ 男性インタビュワー（けんと）
+[2] HOMEページ（/home）← ログイン後の起点
+    ├─ 新しいインタビュー開始
+    └─ マイページへ（ログインユーザーのみ）
     ↓
-[3] AIチャットインタビュー（14ステップ）
+[3] インタビュワー選択（/select-interviewer）※初回のみ
+    ├─ 女性インタビュワー
+    └─ 男性インタビュワー
+    ↓
+[4] AIチャットインタビュー（/interview）
+    ├─ Step 0: インタビュワーに名前をつける（初回のみ）
     ├─ Phase 1: 基本情報の収集（固定7ステップ）
     │   └─ 名前、ニックネーム、性別、年齢、居住地、職業、職業詳細
     └─ Phase 2: 深掘り質問（動的7ステップ）
         └─ AIが生成する個別最適化された質問
     ↓
-[4] Firestore保存（全ユーザー共通）
+[5] Firestore保存（全ユーザー共通）
     ├─ インタビュー完了時に自動保存
     └─ 保存されたIDで結果ページにリダイレクト
     ↓
-[5] アウトプット生成・表示
+[6] アウトプット生成・表示（/result）
     ├─ インタビュー記事（800〜1500字）
     ├─ 記事のコピー機能
     └─ （Phase 2-2: 自己PR、マッチングプロフィール、SNSプロフィール）
     ↓
-[6] マイページ（ログインユーザーのみ）
+[7] マイページ（/mypage）※ログインユーザーのみ
     ├─ 過去のインタビュー一覧
-    └─ インタビュー詳細表示
+    ├─ インタビュー詳細表示
+    └─ ログアウト（LP /に戻る）
 ```
 
 ## データ構造
@@ -215,6 +226,7 @@ interface DynamicData {
   - uid: string
   - email?: string
   - displayName?: string
+  - interviewerName?: string  # ユーザーがつけたインタビュワーの名前
   - createdAt: Timestamp
   - lastLoginAt: Timestamp
 
@@ -325,14 +337,39 @@ interface DynamicData {
 }
 ```
 
+### POST /api/save-interviewer-name
+
+インタビュワー名を保存（ログインユーザーのみ）
+
+**Request:**
+```json
+{
+  "userId": "string",
+  "interviewerName": "string"
+}
+```
+
+**Response:**
+```json
+{
+  "success": boolean
+}
+```
+
 ## インタビュワー設定
 
-| ID | 名前 | 性別 | キャラクター | 口調 |
-|----|------|------|-------------|------|
-| female_01 | あかり | 女性 | かわいい・親しみやすい | 丁寧だけどフレンドリー |
-| male_01 | けんと | 男性 | かっこいい・知的 | 落ち着いた敬語 |
+| ID | 性別 | キャラクター | 口調 |
+|----|------|-------------|------|
+| female_01 | 女性 | かわいい・親しみやすい | 丁寧だけどフレンドリー |
+| male_01 | 男性 | かっこいい・知的 | 落ち着いた敬語 |
 
-- 画像ファイル: `/public/image/` に保存
+**名前のカスタマイズ**:
+- ユーザーが初回インタビュー時にインタビュワーに自由に名前をつけられる
+- 名前はCookie（365日）とFirestore（ログインユーザーのみ）に保存
+- 2回目以降のインタビューでは同じ名前が使用される
+
+**画像ファイル**:
+- `/public/image/` に保存
 - アイコン: 丸抜き（48px × 48px）
 - 選択画面: 矩形（600px高さ）
 
@@ -374,6 +411,12 @@ interface DynamicData {
 - [x] URLパラメータでの結果表示（/result?id={interviewId}）
 - [x] マイページ（過去のインタビュー一覧）
 - [x] インタビュー詳細ページ（/mypage/interview/[id]）
+- [x] HOMEページ（ログイン後の起点ページ）
+- [x] 導線整理（LP→HOME、ログアウト→LP）
+- [x] インタビュワー名カスタマイズ機能（初回に名前付け）
+- [x] インタビュワー選択の初回のみ化（2回目以降は自動選択）
+- [x] ユーザーヘッダー（ログイン状態表示、HOME/マイページへの導線）
+- [x] UI改善（インタビューページのアイコン配置、名前表示の最適化）
 
 ### 📋 Phase 2-2（予定）
 - [ ] 4種類のアウトプット生成

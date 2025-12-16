@@ -23,7 +23,6 @@ export type InterviewerId = 'female_01' | 'male_01';
 // インタビュワー情報
 export interface Interviewer {
   id: InterviewerId;
-  name: string;
   gender: '女性' | '男性';
   character: string;
   tone: string;
@@ -96,6 +95,7 @@ export interface UserData {
   email?: string;
   displayName?: string;
   photoURL?: string;
+  interviewerName?: string; // ユーザーがつけたインタビュワーの名前
   interviews: InterviewSession[];
   createdAt: Date;
   lastLoginAt: Date;

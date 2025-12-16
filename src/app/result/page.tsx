@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { FixedUserData, DynamicData, InterviewData } from '@/types';
+import UserHeader from '@/components/UserHeader';
+import Cookies from 'js-cookie';
 
 function ResultContent() {
   const router = useRouter();
@@ -93,8 +95,21 @@ function ResultContent() {
   };
 
   const handleStartNew = () => {
-    // 新しいインタビューを開始
-    router.push('/');
+    // ゲストセッションIDがない場合は作成
+    if (!Cookies.get('guest_session_id')) {
+      const { v4: uuidv4 } = require('uuid');
+      const sessionId = uuidv4();
+      Cookies.set('guest_session_id', sessionId, { expires: 30, path: '/' });
+    }
+
+    // すでにインタビュワーが選択されている場合は直接インタビューページへ
+    const selectedInterviewer = Cookies.get('selected_interviewer');
+    if (selectedInterviewer) {
+      router.push('/interview');
+    } else {
+      // 初回の場合はインタビュワー選択ページへ
+      router.push('/select-interviewer');
+    }
   };
 
   if (isLoading) {
@@ -114,8 +129,12 @@ function ResultContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white px-4 py-12">
-      <main className="mx-auto max-w-4xl">
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white">
+      {/* ユーザーヘッダー */}
+      <UserHeader />
+
+      <div className="px-4 py-12">
+        <main className="mx-auto max-w-4xl">
         {/* ヘッダー */}
         <div className="mb-8 text-center">
           <h1 className="mb-4 text-4xl font-bold text-gray-900 md:text-5xl">
@@ -224,13 +243,14 @@ function ResultContent() {
             新しいインタビューを始める
           </button>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/home')}
             className="rounded-full border-2 border-purple-600 bg-white px-8 py-4 text-lg font-semibold text-purple-600 shadow-md transition-all hover:bg-purple-50 hover:shadow-lg"
           >
-            トップに戻る
+            HOMEに戻る
           </button>
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Cookies from 'js-cookie';
 import Image from 'next/image';
 import { INTERVIEWERS } from '@/lib/interviewers';
 import { InterviewerId } from '@/types';
+import UserHeader from '@/components/UserHeader';
 
 export default function SelectInterviewer() {
   const router = useRouter();
@@ -23,8 +24,8 @@ export default function SelectInterviewer() {
   }, [router]);
 
   const handleSelectInterviewer = (interviewerId: InterviewerId) => {
-    // 選択したインタビュワーIDをCookieに保存
-    Cookies.set('selected_interviewer', interviewerId, { expires: 30, path: '/' });
+    // 選択したインタビュワーIDをCookieに永続保存（365日）
+    Cookies.set('selected_interviewer', interviewerId, { expires: 365, path: '/' });
 
     // インタビューページへ遷移
     router.push('/interview');
@@ -39,8 +40,12 @@ export default function SelectInterviewer() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-purple-50 to-white px-4 py-12">
-      <main className="flex w-full max-w-7xl flex-col items-center gap-12 text-center">
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-purple-50 to-white">
+      {/* ユーザーヘッダー */}
+      <UserHeader />
+
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
+        <main className="flex w-full max-w-7xl flex-col items-center gap-12 text-center">
         {/* ヘッダー */}
         <div className="flex flex-col gap-4">
           <h1 className="text-4xl font-bold text-gray-900 md:text-5xl">
@@ -62,7 +67,7 @@ export default function SelectInterviewer() {
               <div className="relative h-[600px] w-full">
                 <Image
                   src={interviewer.gender === '女性' ? '/image/lady-interviewer.png' : '/image/man-interviewer.png'}
-                  alt={interviewer.name}
+                  alt={`${interviewer.gender}のインタビュワー`}
                   fill
                   className="object-cover transition-transform group-hover:scale-105"
                   priority
@@ -74,12 +79,13 @@ export default function SelectInterviewer() {
 
         {/* 戻るボタン */}
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/home')}
           className="text-gray-500 underline hover:text-gray-700"
         >
-          トップに戻る
+          HOMEに戻る
         </button>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

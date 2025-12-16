@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { getInterviewer } from '@/lib/interviewers';
 import { ChatMessage, InterviewerId } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import UserHeader from '@/components/UserHeader';
 
 export default function Interview() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function Interview() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [interviewerName, setInterviewerName] = useState<string>('');
+  const [isNamingPhase, setIsNamingPhase] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const interviewer = interviewerId ? getInterviewer(interviewerId) : null;
@@ -34,12 +37,27 @@ export default function Interview() {
 
     setInterviewerId(selectedInterviewer);
 
-    // 初期メッセージを設定
-    const initialMessage: ChatMessage = {
-      role: 'assistant',
-      content: `こんにちは！私は${getInterviewer(selectedInterviewer)?.name}です。今日はあなたのことをたくさん教えてください。まず、お名前を教えていただけますか？`,
-      timestamp: new Date(),
-    };
+    // 保存されているインタビュワー名をチェック
+    const savedName = Cookies.get('interviewer_name');
+
+    let initialMessage: ChatMessage;
+    if (savedName) {
+      // すでに名前がある場合
+      setInterviewerName(savedName);
+      setIsNamingPhase(false);
+      initialMessage = {
+        role: 'assistant',
+        content: `こんにちは！私は${savedName}です。今日はあなたのことをたくさん教えてください。まず、お名前を教えていただけますか？`,
+        timestamp: new Date(),
+      };
+    } else {
+      // 初回の場合は名前をつけてもらう
+      initialMessage = {
+        role: 'assistant',
+        content: 'こんにちは！まず、私に名前を付けてください。どんな名前で呼んでほしいですか？',
+        timestamp: new Date(),
+      };
+    }
 
     setMessages([initialMessage]);
   }, [router, user]);
@@ -59,8 +77,47 @@ export default function Interview() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = inputText;
     setInputText('');
     setIsLoading(true);
+
+    // 名前付けフェーズの処理
+    if (isNamingPhase) {
+      const name = currentInput.trim();
+      setInterviewerName(name);
+      setIsNamingPhase(false);
+
+      // Cookieに保存（365日）
+      Cookies.set('interviewer_name', name, { expires: 365, path: '/' });
+
+      // Firestoreにも保存（ログインユーザーの場合）
+      if (user && !user.isAnonymous) {
+        try {
+          await fetch('/api/save-interviewer-name', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: user.uid,
+              interviewerName: name,
+            }),
+          });
+        } catch (error) {
+          console.error('Failed to save interviewer name:', error);
+        }
+      }
+
+      const responseMessage: ChatMessage = {
+        role: 'assistant',
+        content: `ありがとうございます！これから私は${name}としてインタビューさせていただきます。それでは、あなたのお名前を教えていただけますか？`,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, responseMessage]);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // APIにメッセージを送信
@@ -175,32 +232,19 @@ export default function Interview() {
 
   return (
     <div className="flex h-screen flex-col bg-gradient-to-b from-purple-50 to-white">
-      {/* ヘッダー */}
-      <div className="border-b bg-white px-4 py-4 shadow-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative h-12 w-12 overflow-hidden rounded-full">
-              <Image
-                src={interviewer.gender === '女性' ? '/image/icon_lady-interviewer.png' : '/image/icon_man-interviewer.png'}
-                alt={interviewer.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">
-                {interviewer.name}
-              </h2>
-              <p className="text-sm text-gray-500">{interviewer.character}</p>
-            </div>
+      {/* ユーザーヘッダー */}
+      <UserHeader showHomeButton={false} />
+
+      {/* ステータスバー */}
+      {isCompleted && (
+        <div className="border-b bg-green-50 px-4 py-3">
+          <div className="mx-auto max-w-4xl text-center">
+            <span className="text-sm font-semibold text-green-700">
+              ✓ インタビュー完了
+            </span>
           </div>
-          {isCompleted && (
-            <div className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-              インタビュー完了
-            </div>
-          )}
         </div>
-      </div>
+      )}
 
       {/* メッセージエリア */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -208,10 +252,20 @@ export default function Interview() {
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex ${
+              className={`flex items-start gap-3 ${
                 message.role === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
+              {message.role === 'assistant' && interviewer && (
+                <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full">
+                  <Image
+                    src={interviewer.gender === '女性' ? '/image/icon_lady-interviewer.png' : '/image/icon_man-interviewer.png'}
+                    alt="インタビュワー"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
               <div
                 className={`max-w-[70%] rounded-2xl px-5 py-3 ${
                   message.role === 'user'
@@ -225,8 +279,16 @@ export default function Interview() {
               </div>
             </div>
           ))}
-          {isLoading && (
-            <div className="flex justify-start">
+          {isLoading && interviewer && (
+            <div className="flex items-start gap-3 justify-start">
+              <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-full">
+                <Image
+                  src={interviewer.gender === '女性' ? '/image/icon_lady-interviewer.png' : '/image/icon_man-interviewer.png'}
+                  alt="インタビュワー"
+                  fill
+                  className="object-cover"
+                />
+              </div>
               <div className="max-w-[70%] rounded-2xl bg-white px-5 py-3 shadow-sm">
                 <div className="flex gap-2">
                   <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400"></div>

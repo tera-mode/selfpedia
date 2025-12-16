@@ -311,7 +311,7 @@ function analyzeInterviewState(messages: ChatMessage[]): InterviewState {
 }
 
 function generateSystemPrompt(
-  interviewer: { name: string; tone: string; character: string },
+  interviewer: { tone: string; character: string },
   state: InterviewState
 ): string {
   // === Phase 1: 固定情報収集モード ===
@@ -349,7 +349,7 @@ function generateSystemPrompt(
         stepInstruction = '';
     }
 
-    return `あなたは${interviewer.name}というインタビュワーです。
+    return `あなたはインタビュワーです。
 キャラクター: ${interviewer.character}
 話し方: ${interviewer.tone}
 
@@ -369,7 +369,7 @@ ${state.currentStep} / ${state.totalSteps} ステップ完了`;
   const dynamicStepNumber = state.currentStep - FIXED_INTERVIEW_STEPS.length;
   const remainingQuestions = DYNAMIC_INTERVIEW_STEPS_COUNT - dynamicStepNumber;
 
-  return `あなたは${interviewer.name}というインタビュワーです。
+  return `あなたはインタビュワーです。
 キャラクター: ${interviewer.character}
 話し方: ${interviewer.tone}
 

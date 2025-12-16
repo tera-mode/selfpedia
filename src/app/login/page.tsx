@@ -15,9 +15,10 @@ export default function Login() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // すでにログイン済みの場合はインタビュワー選択画面へ
-    if (user && !loading) {
-      router.push('/select-interviewer');
+    // 匿名ユーザーの場合は何もしない（ログインフローを進めるため）
+    if (user && !loading && !user.isAnonymous) {
+      // 通常のログイン済みユーザーの場合のみHOMEにリダイレクト
+      router.push('/home');
     }
   }, [user, loading, router]);
 
@@ -26,7 +27,7 @@ export default function Login() {
     setError('');
     try {
       await signInWithGoogle();
-      router.push('/select-interviewer');
+      router.push('/home');
     } catch (error: any) {
       console.error('ログインエラー:', error);
       setError('ログインに失敗しました。もう一度お試しください。');
@@ -51,7 +52,7 @@ export default function Login() {
         }
         await signUpWithEmail(email, password, displayName);
       }
-      router.push('/select-interviewer');
+      router.push('/home');
     } catch (error: any) {
       console.error('認証エラー:', error);
       if (error.code === 'auth/email-already-in-use') {
@@ -90,6 +91,16 @@ export default function Login() {
             {mode === 'login' ? 'ログイン' : '新規登録'}
           </p>
         </div>
+
+        {/* ゲストユーザー向けメッセージ */}
+        {user && user.isAnonymous && (
+          <div className="w-full rounded-lg bg-blue-50 p-4 text-left">
+            <p className="text-sm text-blue-800">
+              現在ゲストとしてログインしています。<br />
+              ログインすることで、インタビュー履歴を永続的に保存できます。
+            </p>
+          </div>
+        )}
 
         {/* メイン認証フォーム */}
         <div className="w-full rounded-2xl bg-white p-8 shadow-lg">

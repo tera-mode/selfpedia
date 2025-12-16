@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getInterviewer } from '@/lib/interviewers';
 import { InterviewerId } from '@/types';
+import Cookies from 'js-cookie';
 
 interface Interview {
   id: string;
@@ -78,16 +79,34 @@ export default function MyPage() {
   };
 
   const handleSignOut = async () => {
+    if (!confirm('ログアウトしますか？')) {
+      return;
+    }
     try {
       await signOut();
       router.push('/');
     } catch (error) {
       console.error('ログアウトエラー:', error);
+      alert('ログアウトに失敗しました。もう一度お試しください。');
     }
   };
 
   const handleNewInterview = () => {
-    router.push('/select-interviewer');
+    // ゲストセッションIDがない場合は作成
+    if (!Cookies.get('guest_session_id')) {
+      const { v4: uuidv4 } = require('uuid');
+      const sessionId = uuidv4();
+      Cookies.set('guest_session_id', sessionId, { expires: 30, path: '/' });
+    }
+
+    // すでにインタビュワーが選択されている場合は直接インタビューページへ
+    const selectedInterviewer = Cookies.get('selected_interviewer');
+    if (selectedInterviewer) {
+      router.push('/interview');
+    } else {
+      // 初回の場合はインタビュワー選択ページへ
+      router.push('/select-interviewer');
+    }
   };
 
   if (loading || !user) {
@@ -106,7 +125,7 @@ export default function MyPage() {
           <div>
             <h1 className="text-4xl font-bold text-gray-900">マイページ</h1>
             <p className="mt-2 text-gray-600">
-              ようこそ、{user.displayName || user.email}さん
+              {user.email}
             </p>
           </div>
           <div className="flex gap-4">
@@ -148,7 +167,6 @@ export default function MyPage() {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {interviews.map((interview) => {
-                const interviewer = getInterviewer(interview.interviewerId);
                 const date = new Date(interview.createdAt);
 
                 return (
@@ -158,27 +176,12 @@ export default function MyPage() {
                     onClick={() => router.push(`/mypage/interview/${interview.id}`)}
                   >
                     {/* 日付 */}
-                    <div className="mb-3 text-sm text-gray-500">
+                    <div className="mb-4 text-sm text-gray-500">
                       {date.toLocaleDateString('ja-JP', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
                       })}
-                    </div>
-
-                    {/* インタビュワー */}
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-2xl">
-                        {interviewer?.gender === '女性' ? '👩' : '👨'}
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          インタビュワー
-                        </p>
-                        <p className="font-semibold text-gray-800">
-                          {interviewer?.name || 'Unknown'}
-                        </p>
-                      </div>
                     </div>
 
                     {/* 基本情報 */}
@@ -225,13 +228,13 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* トップに戻るボタン */}
+        {/* HOMEに戻るボタン */}
         <div className="mt-8 text-center">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/home')}
             className="text-gray-500 underline hover:text-gray-700"
           >
-            トップに戻る
+            HOMEに戻る
           </button>
         </div>
       </main>

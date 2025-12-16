@@ -109,23 +109,7 @@ export default function InterviewDetail() {
           </button>
         </div>
 
-        {/* インタビュワー情報 */}
-        {interviewer && (
-          <div className="mb-8 rounded-2xl bg-white p-6 shadow-lg">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100 text-4xl">
-                {interviewer.gender === '女性' ? '👩' : '👨'}
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">インタビュワー</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {interviewer.name}
-                </p>
-                <p className="text-sm text-gray-600">{interviewer.character}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* インタビュワー情報は削除（ユーザーがカスタム名をつけるため） */}
 
         {/* プロフィール */}
         <div className="mb-8 rounded-2xl bg-white p-6 shadow-lg">
