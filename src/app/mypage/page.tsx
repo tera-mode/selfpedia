@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getInterviewer } from '@/lib/interviewers';
 import { InterviewerId } from '@/types';
 import Cookies from 'js-cookie';
 
@@ -34,6 +33,8 @@ export default function MyPage() {
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [isLoadingInterviews, setIsLoadingInterviews] = useState(true);
 
+  const isGuest = user?.isAnonymous ?? false;
+
   useEffect(() => {
     if (loading) return;
 
@@ -43,13 +44,7 @@ export default function MyPage() {
       return;
     }
 
-    // 匿名ユーザーの場合はマイページにアクセスできない
-    if (user.isAnonymous) {
-      alert('マイページはログインユーザーのみアクセスできます。');
-      router.push('/');
-      return;
-    }
-
+    // ゲストユーザーも含めてインタビューを取得
     fetchInterviews();
   }, [user, loading, router]);
 
@@ -120,12 +115,34 @@ export default function MyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white px-4 py-12">
       <main className="mx-auto max-w-6xl">
+        {/* ゲストユーザー向けログイン案内 */}
+        {isGuest && (
+          <div className="mb-8 rounded-2xl bg-blue-50 p-6 shadow-lg">
+            <div className="flex flex-col items-center gap-4 text-center md:flex-row md:justify-between md:text-left">
+              <div>
+                <h2 className="text-xl font-bold text-blue-800">
+                  ログインしてインタビューを保存しよう
+                </h2>
+                <p className="mt-2 text-blue-600">
+                  ログインすると、インタビュー履歴を永続的に保存できます
+                </p>
+              </div>
+              <button
+                onClick={() => router.push('/login')}
+                className="whitespace-nowrap rounded-full bg-blue-600 px-8 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
+              >
+                ログインして保存
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ヘッダー */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">マイページ</h1>
             <p className="mt-2 text-gray-600">
-              {user.email}
+              {isGuest ? 'ゲストユーザー' : user.email}
             </p>
           </div>
           <div className="flex gap-4">
@@ -135,12 +152,14 @@ export default function MyPage() {
             >
               新しいインタビュー
             </button>
-            <button
-              onClick={handleSignOut}
-              className="rounded-full border-2 border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              ログアウト
-            </button>
+            {!isGuest && (
+              <button
+                onClick={handleSignOut}
+                className="rounded-full border-2 border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                ログアウト
+              </button>
+            )}
           </div>
         </div>
 
@@ -155,14 +174,26 @@ export default function MyPage() {
           ) : interviews.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-600 mb-4">
-                まだインタビューがありません
+                {isGuest
+                  ? 'ゲストのインタビュー履歴は保存されません'
+                  : 'まだインタビューがありません'}
               </p>
-              <button
-                onClick={handleNewInterview}
-                className="rounded-full bg-purple-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-purple-700"
-              >
-                最初のインタビューを始める
-              </button>
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  onClick={handleNewInterview}
+                  className="rounded-full bg-purple-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-purple-700"
+                >
+                  {isGuest ? 'インタビューを始める' : '最初のインタビューを始める'}
+                </button>
+                {isGuest && (
+                  <button
+                    onClick={() => router.push('/login')}
+                    className="text-blue-600 underline hover:text-blue-700"
+                  >
+                    ログインして履歴を保存する
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
