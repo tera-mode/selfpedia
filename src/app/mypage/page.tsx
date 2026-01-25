@@ -152,14 +152,12 @@ export default function MyPage() {
             >
               新しいインタビュー
             </button>
-            {!isGuest && (
-              <button
-                onClick={handleSignOut}
-                className="rounded-full border-2 border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                ログアウト
-              </button>
-            )}
+            <button
+              onClick={handleSignOut}
+              className="rounded-full border-2 border-gray-300 bg-white px-6 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              ログアウト
+            </button>
           </div>
         </div>
 

@@ -36,10 +36,6 @@ export default function Home() {
   };
 
   const handleGoToMyPage = () => {
-    if (user?.isAnonymous) {
-      alert('マイページはログインユーザーのみアクセスできます。\nログインすることで、インタビュー履歴を永続的に保存できます。');
-      return;
-    }
     router.push('/mypage');
   };
 
