@@ -22,6 +22,7 @@ export default function Interview() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [interviewerName, setInterviewerName] = useState<string>('');
   const [userNickname, setUserNickname] = useState<string>(''); // ユーザーの呼び名
+  const [currentInterviewId, setCurrentInterviewId] = useState<string | null>(null); // 現在のインタビューID
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isDesktop = useIsDesktop();
@@ -68,6 +69,48 @@ export default function Interview() {
     }
   }, [isLoading, isCompleted]);
 
+  // インタビューデータを保存する関数
+  const saveInterview = async (
+    updatedMessages: ChatMessage[],
+    interviewData: { fixed?: Record<string, unknown>; dynamic?: Record<string, unknown> } | null,
+    status: 'in_progress' | 'completed'
+  ) => {
+    try {
+      const saveResponse = await fetch('/api/save-interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user?.uid,
+          interviewData: interviewData,
+          messages: updatedMessages,
+          interviewerId: interviewerId,
+          sessionId: Cookies.get('guest_session_id'),
+          interviewId: currentInterviewId, // 既存のIDがあれば更新
+          status: status,
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save interview');
+      }
+
+      const saveResult = await saveResponse.json();
+
+      // 初回保存時はIDを保存
+      if (!currentInterviewId) {
+        setCurrentInterviewId(saveResult.interviewId);
+      }
+
+      console.log('Interview saved:', saveResult.interviewId, 'status:', status);
+      return saveResult.interviewId;
+    } catch (error) {
+      console.error('Error saving interview:', error);
+      throw error;
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading || !interviewerId) return;
 
@@ -108,6 +151,7 @@ export default function Interview() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      const updatedMessages = [...messages, userMessage, assistantMessage];
 
       // ユーザーの呼び名が抽出されたら保存
       if (data.extractedNickname && !userNickname) {
@@ -126,7 +170,6 @@ export default function Interview() {
       // インタビュー完了チェック
       if (data.isCompleted) {
         setIsCompleted(true);
-        const updatedMessages = [...messages, userMessage, assistantMessage];
 
         console.log('Interview completed! Data:', data.interviewData);
 
@@ -137,33 +180,11 @@ export default function Interview() {
             occupation: data.interviewData.occupation,
             selectedInterviewer: interviewerId,
           },
-          dynamic: data.interviewData.dynamic || {}, // DynamicDataを含める
+          dynamic: data.interviewData.dynamic || {},
         };
 
-        console.log('Saving to Firestore immediately...');
-
-        // Firestoreに直接保存
         try {
-          const saveResponse = await fetch('/api/save-interview', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: user?.uid,
-              interviewData: interviewDataToSave,
-              messages: updatedMessages,
-              interviewerId: interviewerId,
-              sessionId: Cookies.get('guest_session_id'),
-            }),
-          });
-
-          if (!saveResponse.ok) {
-            throw new Error('Failed to save interview');
-          }
-
-          const saveResult = await saveResponse.json();
-          console.log('Interview saved to Firestore:', saveResult.interviewId);
+          const savedInterviewId = await saveInterview(updatedMessages, interviewDataToSave, 'completed');
 
           // 特徴カードを保存
           if (traits.length > 0) {
@@ -174,7 +195,7 @@ export default function Interview() {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  interviewId: saveResult.interviewId,
+                  interviewId: savedInterviewId,
                   traits: traits,
                 }),
               });
@@ -184,14 +205,18 @@ export default function Interview() {
             }
           }
 
-          // 保存成功後、結果ページへ遷移（IDをURLパラメータとして渡す）
+          // 保存成功後、結果ページへ遷移
           setTimeout(() => {
-            router.push(`/result?id=${saveResult.interviewId}`);
+            router.push(`/result?id=${savedInterviewId}`);
           }, 2000);
         } catch (error) {
-          console.error('Error saving interview:', error);
           alert('インタビューの保存に失敗しました。もう一度お試しください。');
         }
+      } else {
+        // 進行中のインタビューを都度保存（バックグラウンドで実行）
+        saveInterview(updatedMessages, null, 'in_progress').catch((error) => {
+          console.error('Background save failed:', error);
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);
