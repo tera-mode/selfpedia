@@ -225,6 +225,67 @@ export default function CreateOutputPage() {
                     </div>
                   </div>
 
+                  {/* 特別な機能（画像生成・自分AIと話す） */}
+                  <div className="mb-8 grid gap-4 md:grid-cols-2">
+                    {/* 自分画像生成 */}
+                    <div className="glass-card rounded-2xl p-6">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-200 to-pink-200 text-2xl">
+                          🎨
+                        </div>
+                        <div>
+                          <h3 className="mb-1 text-lg font-bold text-gray-900">
+                            自分画像生成
+                          </h3>
+                          <p className="mb-3 text-sm text-gray-600">
+                            特徴データを元に、あなたのイメージ画像を生成
+                          </p>
+                          {traits.length >= 10 ? (
+                            <button
+                              onClick={() => router.push('/output/self-image')}
+                              className="btn-gradient-primary w-full rounded-xl px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg"
+                            >
+                              画像を生成
+                            </button>
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              特徴が10個以上必要です（{traits.length}/10）
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 自分AIと話す */}
+                    <div className="glass-card rounded-2xl p-6">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-200 to-cyan-200 text-2xl">
+                          💬
+                        </div>
+                        <div>
+                          <h3 className="mb-1 text-lg font-bold text-gray-900">
+                            自分AIと話す
+                          </h3>
+                          <p className="mb-3 text-sm text-gray-600">
+                            特徴を学んだAIと対話して、新しい視点を得る
+                          </p>
+                          {traits.length >= 10 ? (
+                            <button
+                              onClick={() => router.push('/output/talk-with-self')}
+                              className="btn-gradient-primary w-full rounded-xl px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg"
+                            >
+                              対話を始める
+                            </button>
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              特徴が10個以上必要です（{traits.length}/10）
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* アウトプットタイプ選択 */}
                   <div className="mb-8 grid gap-4 md:grid-cols-2">
                     {outputTypes.map((type) => (

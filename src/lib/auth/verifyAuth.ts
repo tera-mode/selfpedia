@@ -5,6 +5,7 @@ export interface AuthResult {
   authenticated: boolean;
   uid: string | null;
   email?: string | null;
+  isAnonymous?: boolean;
   error?: string;
 }
 
@@ -37,10 +38,15 @@ export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
     // Firebase Admin SDKでトークンを検証
     const decodedToken = await adminAuth.verifyIdToken(token);
 
+    // 匿名ユーザーかどうかを判定
+    // Firebase匿名認証の場合、providerIdが'anonymous'またはsign_in_providerが'anonymous'
+    const isAnonymous = decodedToken.firebase?.sign_in_provider === 'anonymous';
+
     return {
       authenticated: true,
       uid: decodedToken.uid,
       email: decodedToken.email || null,
+      isAnonymous,
     };
   } catch (error) {
     console.error('Auth verification error:', error);

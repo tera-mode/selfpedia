@@ -24,7 +24,7 @@ export type InterviewerId = 'female_01' | 'male_01';
 export type InterviewMode = 'basic' | 'self-pr' | 'manual';
 
 // アウトプットタイプ
-export type OutputType = 'sns-profile' | 'self-pr' | 'resume';
+export type OutputType = 'sns-profile' | 'self-pr' | 'resume' | 'self-image' | 'talk-with-self';
 
 // アウトプットステータス
 export type OutputStatus = 'draft' | 'published' | 'archived';
@@ -120,6 +120,7 @@ export interface UserProfile {
 export interface UserInterviewer {
   id: InterviewerId;             // 選択中のインタビュワーID
   customName: string;            // ユーザーがつけた呼び名
+  customPersonality?: string;    // カスタマイズされた性格（任意）
 }
 
 // ユーザーデータ（Firestore保存用）- 拡張版
@@ -173,6 +174,19 @@ export interface GuestSession {
   interview?: InterviewSession;
   createdAt: Date;
   expiresAt: Date;
+}
+
+// 自分画像（Self Image）
+export interface SelfImage {
+  id: string;
+  userId: string;
+  squareImageUrl: string;     // スクエア画像URL
+  prompt?: string;            // 生成に使用したプロンプト
+  situation?: string;         // 選ばれたシチュエーション（英語）
+  reason?: string;            // 生成理由（日本語）
+  traitsUsed: string[];       // 使用した特徴のID配列
+  generatedAt: Date;
+  createdAt: Date;
 }
 
 // 特徴カード関連の型をエクスポート

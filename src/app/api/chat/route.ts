@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGeminiModel } from '@/lib/gemini';
 import { getInterviewer } from '@/lib/interviewers';
-import { getInterviewMode, isEndlessMode, getQuestionCount } from '@/lib/interviewModes';
+import { getInterviewMode, isEndlessMode, getQuestionCount, getRandomQuestion } from '@/lib/interviewModes';
 import { ChatMessage, InterviewerId, InterviewMode, FixedUserData, DynamicData } from '@/types';
 import { verifyAuth } from '@/lib/auth/verifyAuth';
 
@@ -18,6 +18,38 @@ interface InterviewState {
 // Phase 1: 基本情報収集のステップ（簡素化: 2ステップのみ）
 const FIXED_INTERVIEW_STEPS = ['nickname', 'occupation'];
 
+/**
+ * カスタム性格をシステムプロンプトに組み込むためのヘルパー関数
+ * 一箇所で管理することで冗長性を排除
+ */
+function buildPersonalityContext(
+  baseCharacter: string,
+  baseTone: string,
+  customPersonality?: string
+): { header: string; characterSection: string } {
+  if (!customPersonality) {
+    return {
+      header: '',
+      characterSection: `## キャラクター設定
+- 性格: ${baseCharacter}
+- 話し方: ${baseTone}`,
+    };
+  }
+
+  return {
+    header: `## あなたの個性
+${customPersonality}
+
+この個性を自然に会話に反映させてください。
+
+`,
+    characterSection: `## キャラクター設定
+- ベース性格: ${baseCharacter}
+- ベース話し方: ${baseTone}
+- カスタム性格: 上記「あなたの個性」を優先`,
+  };
+}
+
 // デフォルトの深掘り質問数（エンドレスモード以外）
 const DEFAULT_DYNAMIC_STEPS = 10;
 
@@ -32,7 +64,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { messages, interviewerId, mode = 'basic', forceComplete = false, userProfile } = await request.json();
+    const { messages, interviewerId, mode = 'basic', forceComplete = false, userProfile, interviewerCustomization, isInitialGreeting = false, interviewerName } = await request.json();
 
     if (!messages || !Array.isArray(messages) || !interviewerId) {
       return NextResponse.json(
@@ -49,16 +81,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 初期挨拶の生成
+    if (isInitialGreeting) {
+      return generateInitialGreeting(
+        interviewer,
+        mode as InterviewMode,
+        interviewerName,
+        userProfile,
+        interviewerCustomization
+      );
+    }
+
     // インタビューの状態を分析（userProfileがあれば固定質問をスキップ）
     const state = await analyzeInterviewState(messages, mode as InterviewMode, userProfile);
 
     // 強制終了フラグがある場合（エンドレスモードの終了ボタン）
     if (forceComplete && isEndlessMode(mode)) {
-      return handleForceComplete(state, interviewer);
+      return handleForceComplete(state, interviewer, interviewerCustomization);
     }
 
     // システムプロンプトを生成
-    const systemPrompt = generateSystemPrompt(interviewer, state);
+    const systemPrompt = generateSystemPrompt(interviewer, state, interviewerCustomization);
 
     // Gemini APIを使用して返答を生成
     const model = getGeminiModel();
@@ -123,17 +166,104 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * 初期挨拶を生成
+ */
+async function generateInitialGreeting(
+  interviewer: { tone: string; character: string },
+  mode: InterviewMode,
+  interviewerName?: string,
+  userProfile?: { nickname: string; occupation: string },
+  interviewerCustomization?: string
+) {
+  const model = getGeminiModel();
+  const modeConfig = getInterviewMode(mode);
+  const modeName = modeConfig?.name || '基本インタビュー';
+  const iceBreakQuestion = getRandomQuestion(mode, 'iceBreak') || '最近ハマってることってありますか？';
+
+  // 統一されたヘルパー関数でキャラクター設定を構築
+  const personality = buildPersonalityContext(
+    interviewer.character,
+    interviewer.tone,
+    interviewerCustomization
+  );
+
+  try {
+    const prompt = userProfile?.nickname && userProfile?.occupation
+      ? `${personality.header}あなたは${interviewerName || 'インタビュワー'}です。
+
+${personality.characterSection}
+
+## 状況
+${userProfile.nickname}さんとこれから「${modeName}」モードでインタビューを始めます。
+
+## 指示
+1. 自己紹介をして、親しみやすく挨拶してください
+2. 今日のインタビューモードについて簡単に説明してください
+3. 以下のアイスブレイク質問で会話を始めてください：「${iceBreakQuestion}」
+
+## ルール
+- 自然で親しみやすい雰囲気で
+- 2〜4文程度で
+- 堅苦しくならないように`
+      : `${personality.header}あなたは${interviewerName || 'インタビュワー'}です。
+
+${personality.characterSection}
+
+## 状況
+これから「${modeName}」モードでインタビューを始めます。
+
+## 指示
+1. 自己紹介をして、親しみやすく挨拶してください
+2. 今日のインタビューモードについて簡単に説明してください
+3. まず相手の呼び名を聞いてください（名前、ニックネーム、何でもOK）
+
+## ルール
+- 自然で親しみやすい雰囲気で
+- 2〜4文程度で
+- 堅苦しくならないように`;
+
+    const result = await model.generateContent(prompt);
+    const greeting = result.response.text();
+
+    return NextResponse.json({
+      message: greeting,
+      isCompleted: false,
+      interviewData: null,
+    });
+  } catch (error) {
+    console.error('Error generating initial greeting:', error);
+    // フォールバック
+    const fallbackGreeting = userProfile?.nickname
+      ? `こんにちは、${userProfile.nickname}さん！私は${interviewerName}です。今日は「${modeName}」モードで、${userProfile.nickname}さんの魅力をたくさん引き出していきますね。\n\n${iceBreakQuestion}`
+      : `こんにちは！私は${interviewerName}です。今日は「${modeName}」モードであなたのことをたくさん教えてください。まず、あなたのことをなんて呼んだらいいですか？`;
+
+    return NextResponse.json({
+      message: fallbackGreeting,
+      isCompleted: false,
+      interviewData: null,
+    });
+  }
+}
+
+/**
  * エンドレスモードの強制終了処理
  */
 async function handleForceComplete(
   state: InterviewState,
-  interviewer: { tone: string; character: string }
+  interviewer: { tone: string; character: string },
+  interviewerCustomization?: string
 ) {
   // 最終メッセージを生成
   const model = getGeminiModel();
-  const prompt = `あなたはインタビュワーです。
-キャラクター: ${interviewer.character}
-話し方: ${interviewer.tone}
+  const personality = buildPersonalityContext(
+    interviewer.character,
+    interviewer.tone,
+    interviewerCustomization
+  );
+
+  const prompt = `${personality.header}あなたはインタビュワーです。
+
+${personality.characterSection}
 
 インタビューが終了しました。${state.collectedData.nickname}さんに感謝の言葉を述べて、インタビューを締めくくってください。
 - 2〜3文で簡潔に
@@ -383,7 +513,8 @@ async function analyzeInterviewState(
 
 function generateSystemPrompt(
   interviewer: { tone: string; character: string },
-  state: InterviewState
+  state: InterviewState,
+  interviewerCustomization?: string
 ): string {
   const modeConfig = getInterviewMode(state.mode);
   const modeFocus = modeConfig?.systemPromptFocus || '';
@@ -413,22 +544,31 @@ function generateSystemPrompt(
       ? `${state.currentStep} ステップ完了（エンドレスモード）`
       : `${state.currentStep} / ${state.totalSteps} ステップ完了`;
 
-    return `あなたは一流雑誌のインタビュワーです。目の前の人が「自分ってこんなに面白い人間だったんだ」と気づくような会話を創り出すことがあなたの使命です。
+    // 統一されたヘルパー関数でキャラクター設定を構築
+    const personality = buildPersonalityContext(
+      interviewer.character,
+      interviewer.tone,
+      interviewerCustomization
+    );
 
-## キャラクター設定
-- 性格: ${interviewer.character}
-- 話し方: ${interviewer.tone}
+    return `${personality.header}あなたは一流雑誌のインタビュワーです。目の前の人が「自分ってこんなに面白い人間だったんだ」と気づくような会話を創り出すことがあなたの使命です。
+
+${personality.characterSection}
 
 ## 絶対ルール
 1. 質問は1回のレスポンスで必ず1つだけ
-2. ユーザーの回答には必ず「感情的な反応」を入れてから次の質問へ
+2. 軽く反応してから次の質問へ
 3. 「はい/いいえ」で終わる質問は避ける
 4. 1回の返答は2〜3文程度に抑える
 
+## 反応のバリエーション（毎回違うものを使う）
+- 「あ、いいね！」「お、なるほど」「ほー！」
+- 「うんうん」「あーね」「おお」
+
 ## 禁止事項
-- 「なるほど」「そうなんですね」の連発（同じ相槌を2回連続使わない）
+- 「へぇ〜！○○なんですね」←オウム返し禁止
+- 同じ反応を2回連続使う
 - 「〇〇についてお聞かせください」のような硬い言い回し
-- 「それでは次の質問です」のような機械的な進行
 
 ## 次のステップ
 ${stepInstruction}
@@ -497,11 +637,16 @@ ${randomQuestions.map(q => `- 「${q}」`).join('\n')}`;
 ${deepDiveQuestions.slice(0, 5).map(q => `- 「${q}」`).join('\n')}`
     : '';
 
-  return `あなたは一流雑誌のインタビュワーです。楽しい雑談のような会話で、相手の魅力を自然に引き出してください。
+  // 統一されたヘルパー関数でキャラクター設定を構築
+  const personality = buildPersonalityContext(
+    interviewer.character,
+    interviewer.tone,
+    interviewerCustomization
+  );
 
-## キャラクター設定
-- 性格: ${interviewer.character}
-- 話し方: ${interviewer.tone}
+  return `${personality.header}あなたは一流雑誌のインタビュワーです。楽しい雑談のような会話で、相手の魅力を自然に引き出してください。
+
+${personality.characterSection}
 
 ## インタビュー対象者
 - 呼び名: ${state.collectedData.nickname}さん
@@ -512,67 +657,58 @@ ${modeFocus}
 
 ## 質問数
 ${remainingText}
+
+## 深掘りのバランス
+
+同じ話題は2回まで深掘りOK。3回目は話題を変える。
+
+深掘りの良い例:
+1. 最初の質問「趣味は何？」→ 回答「読書です」
+2. 深掘り1回目「どんなジャンルが好き？」→ 回答「ミステリー」
+3. 話題転換「ところで、休日は他に何してる？」
+
+話題を変える時のフレーズ:
+- 「ところで、〜」「話変わるけど、〜」「そういえば、〜」
+
+避けること:
+- 同じ話題で「なぜ？」「どう感じた？」「どんな意味？」を連続で聞く
+- 一つの回答を延々と掘り続ける
+
+## 会話の流れ
+
+1. ユーザーの回答に軽く反応（1文だけ！）
+2. すぐ次の質問へ
+
+### 超重要：反応のバリエーション
+同じ反応を2回連続で使わない！毎回違う反応を使うこと。
+
+反応パターン（ローテーションで使う）:
+- 「あ、いいね！」「お、なるほど」「ほー！」
+- 「あはは、わかる」「それ気になる」「へぇ意外」
+- 「うんうん」「あーね」「おお」
+
+### 絶対NG
+- 「へぇ〜！○○なんですね」←オウム返し禁止
+- ユーザーが言ったことをそのまま繰り返す
+- 「素敵ですね」「すごいですね」の連発
+- 決めつけ（「〜ですよね」）
+- 長い解釈や意味づけ
+
+## 質問のコツ
 ${questionExamples}
 
-## ★最重要★ 会話のリズム
+### 良い質問（軽くて答えやすい）
+- 「最近だと何かある？」
+- 「例えばどんなこと？」
+- 「逆に〇〇な時は？」
 
-### 理想の流れ
-1. ユーザーの回答
-2. 軽い反応（1文だけ！）
-3. 横展開の質問 or 具体例を聞く
-
-### 悪い流れ（絶対NG）
-1. ユーザーの回答
-2. 長い解釈・意味づけ + さらに深掘り質問
-→ これは尋問になる！
-
-## ★絶対ルール★
-
-### 縦掘りは最大2回まで
-同じ話題で「なぜ？」「どう感じる？」を続けるのは2回まで。
-2回掘ったら必ず横に展開する！
-
-### 横展開のパターン（必ず使う）
-- 「逆に〇〇な時ってあります？」（対比）
-- 「最近そういうことあった？」（具体例を聞く）
-- 「それって〇〇の時も同じ？」（別シーンに展開）
-- 「ちなみに〇〇は？」「ところで〜」（話題転換）
-
-### OKな反応（短く軽く1文）
-- 「あ、そうなんだ！」
-- 「へぇ〜、なるほど」
-- 「あはは、わかる気がする」
-- 「え、意外！」
-- 「おお、いいですね」
-
-## ★絶対NG★
-
-### NGな深掘りチェーン
-「〇〇ですね」→「それはなぜ？」→「その時どう感じる？」→「それは何を意味する？」
-→ これは尋問。絶対やらない！
-
-### NGな反応（決めつけ・過剰な意味づけ）
-- 「〇〇って、すごく素敵なスキルですよね！」← 評価しすぎ
-- 「〇〇とも言えそうですね」← 勝手に解釈しすぎ
-- 「かけがえのない〇〇ですよね」← 大げさすぎ
-- 「〜ですよね！」「〜でしょう」← 決めつけ
-- 「それは愛情表現ですね」← 勝手な意味づけ
-
-### NGな質問（重すぎる・答えにくい）
-- 「どんなところが満たされる感覚がありますか？」
-- 「それはどんな力や自信につながりますか？」
-- 「その根底にある価値観は何でしょう？」
-
-### OKな質問（軽くて答えやすい）
-- 「それってどんな時に特に思います？」
-- 「最近だとどんな場面で？」
-- 「具体的にどんなこと？」
-- 「例えば？」
+### 悪い質問（重すぎる）
+- 「それはどんな価値観から？」
+- 「何が満たされる感覚？」
+- 「根底にあるものは？」
 ${isLastQuestion ? `
 ## 最後の質問
-これが最後の質問です。回答を受け取ったら、軽く温かい言葉で締めくくってください。
-- 「今日は楽しかったです！ありがとうございました」
-- 「〇〇の話、面白かったです！」` : ''}
+これが最後の質問です。回答を受け取ったら、軽く温かい言葉で締めくくってください。` : ''}
 
 【進行状況】${progressText}`;
 }

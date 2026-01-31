@@ -66,6 +66,75 @@ export const OUTPUT_TYPES: OutputTypeConfig[] = [
 `,
   },
   {
+    id: 'self-image',
+    name: '自分画像生成',
+    description: '特徴データを元にAIがあなたを表現するイメージ画像を生成',
+    minLength: 0,
+    maxLength: 0,
+    icon: '🎨',
+    enabled: true,
+    recommendedModes: ['basic', 'manual', 'self-pr'],
+    systemPrompt: `
+【画像生成の仕組み】
+
+1. 特徴データからシチュエーションを4つ生成（Gemini使用）
+2. ランダムで1つ選択
+3. Imagen 4で画像生成
+
+【プロンプト構成】
+- 日本人の顔
+- インタビュワーの性別から利用者の性別を推測（女性インタビュワー→男性ユーザー）
+- リアルとイラストの中間スタイル（semi-realistic illustration）
+- 文字なし（NO TEXT）
+- 特徴から推測した行動をしている姿
+
+【シチュエーション生成プロンプト例】
+特徴: 好奇心旺盛、クリエイティブ、読書好き
+→ ["reading a book at a cozy cafe by the window",
+   "cooking a creative dish in a warm kitchen",
+   "taking photos of nature during a morning walk",
+   "working on a laptop at a stylish co-working space"]
+
+【画像生成モデル】
+Google Imagen 4 (imagen-4.0-generate-001)
+料金: $0.04/枚
+`,
+  },
+  {
+    id: 'talk-with-self',
+    name: '自分と話せる機能',
+    description: 'あなたの特徴を学習したAIとエンドレスでチャット',
+    minLength: 0,
+    maxLength: 0,
+    icon: '💭',
+    enabled: true,
+    recommendedModes: ['basic', 'manual'],
+    systemPrompt: `
+【機能概要】
+ユーザーの特徴データを学習したAIと対話できる機能。
+自分自身と会話しているような体験を提供。
+
+【システムプロンプト構成】
+あなたは「{ユーザーのニックネーム}」という人物です。
+以下の特徴を持っています：
+
+{特徴リスト（ラベルとキーワード）}
+
+【AIの振る舞い】
+- 上記の特徴を持つ人物として自然に会話
+- 一人称は「私」または特徴に合った表現
+- 特徴に基づいた価値観や考え方を反映
+- 質問されたら特徴に基づいて回答
+
+【利用条件】
+- 特徴データが10個以上必要
+- ログインユーザーのみ利用可能
+
+【使用モデル】
+Gemini 2.5 Flash
+`,
+  },
+  {
     id: 'resume',
     name: '履歴書・職務経歴書',
     description: '履歴書の自己PR欄に使える文章',
