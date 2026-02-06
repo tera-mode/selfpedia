@@ -15,6 +15,7 @@ export default function SelectInterviewer() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedInterviewer, setSelectedInterviewer] = useState<InterviewerId | null>(null);
   const [interviewerName, setInterviewerName] = useState('');
+  const [customPersonality, setCustomPersonality] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
   const [interviewMode, setInterviewMode] = useState<InterviewMode>('basic');
 
@@ -74,6 +75,9 @@ export default function SelectInterviewer() {
     // 選択したインタビュワーIDをCookieに永続保存（365日）
     Cookies.set('selected_interviewer', interviewerId, { expires: 365, path: '/' });
     Cookies.set('interviewer_name', name, { expires: 365, path: '/' });
+    if (customPersonality.trim()) {
+      Cookies.set('interviewer_customization', customPersonality.trim(), { expires: 365, path: '/' });
+    }
 
     // Firestoreにも保存（ログインユーザーの場合）
     if (user && !user.isAnonymous) {
@@ -81,6 +85,7 @@ export default function SelectInterviewer() {
         await updateUserInterviewer({
           id: interviewerId,
           customName: name,
+          customPersonality: customPersonality.trim() || undefined,
         });
       } catch (error) {
         console.error('Failed to save interviewer settings:', error);
@@ -200,6 +205,23 @@ export default function SelectInterviewer() {
               className="glass-input mb-4 w-full rounded-xl px-4 py-3 text-center text-lg focus:ring-2 focus:ring-orange-300 focus:outline-none"
               autoFocus
             />
+
+            <div className="mb-4">
+              <p className="mb-2 text-left text-sm font-medium text-gray-700">
+                性格のカスタマイズ（任意）
+              </p>
+              <textarea
+                value={customPersonality}
+                onChange={(e) => setCustomPersonality(e.target.value)}
+                placeholder="例：明るくて元気、優しくて落ち着いた雰囲気、など"
+                className="glass-input w-full rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-orange-300 focus:outline-none"
+                rows={3}
+                maxLength={200}
+              />
+              <p className="mt-1 text-right text-xs text-gray-500">
+                {customPersonality.length}/200
+              </p>
+            </div>
 
             <div className="flex gap-3">
               <button

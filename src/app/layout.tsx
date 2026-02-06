@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "あなたのインタビュワー",
-  description: "AIがあなたを有名人のようにインタビュー",
+  title: "じぶん図鑑",
+  description: "AIとの会話で自分の特徴を集めて図鑑を作る",
 };
 
 export default function RootLayout({

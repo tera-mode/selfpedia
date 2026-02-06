@@ -58,29 +58,62 @@ export default function InterviewPage() {
     setInterviewerId(selectedInterviewer);
     setInterviewerName(savedName);
 
+    // カスタム性格から挨拶スタイルを決定
+    const customization = Cookies.get('interviewer_customization') || '';
+    const greetingStyle = getGreetingStyle(customization);
+
     // userProfileがある場合は、アイスブレイク質問から開始
     if (userProfile?.nickname && userProfile?.occupation) {
       setUserNickname(userProfile.nickname);
-
-      // 質問バンクからアイスブレイク質問を取得
       const iceBreakQuestion = getRandomQuestion(mode, 'iceBreak') || '最近ハマってることってありますか？';
 
       const initialMessage: ChatMessage = {
         role: 'assistant',
-        content: `こんにちは、${userProfile.nickname}さん！私は${savedName}です。今日は「${modeConfig.name}」モードで${userProfile.nickname}さんの魅力をたくさん引き出していきますね。\n\n${iceBreakQuestion}`,
+        content: greetingStyle.hasCustom
+          ? `${greetingStyle.greeting}${userProfile.nickname}さん${greetingStyle.suffix} 私は${savedName}です${greetingStyle.suffix} 今日は「${modeConfig.name}」モードで、${userProfile.nickname}さんの魅力をたくさん引き出していきますね${greetingStyle.suffix}\n\n${iceBreakQuestion}`
+          : `こんにちは、${userProfile.nickname}さん！私は${savedName}です。今日は「${modeConfig.name}」モードで、${userProfile.nickname}さんの魅力をたくさん引き出していきますね。\n\n${iceBreakQuestion}`,
         timestamp: new Date(),
       };
       setMessages([initialMessage]);
     } else {
-      // プロフィールがない場合は従来通り
+      // プロフィールがない場合
       const initialMessage: ChatMessage = {
         role: 'assistant',
-        content: `こんにちは！私は${savedName}です。今日は「${modeConfig.name}」モードであなたのことをたくさん教えてください。まず、あなたのことをなんて呼んだらいいですか？`,
+        content: greetingStyle.hasCustom
+          ? `${greetingStyle.greeting} 私は${savedName}です${greetingStyle.suffix} 今日は「${modeConfig.name}」モードであなたのことをたくさん教えてください${greetingStyle.suffix} まず、あなたのことをなんて呼んだらいいですか？`
+          : `こんにちは！私は${savedName}です。今日は「${modeConfig.name}」モードであなたのことをたくさん教えてください。まず、あなたのことをなんて呼んだらいいですか？`,
         timestamp: new Date(),
       };
       setMessages([initialMessage]);
     }
   }, [router, mode, modeConfig, userProfile]);
+
+  // カスタム性格から挨拶スタイルを決定するヘルパー
+  const getGreetingStyle = (customization: string): { hasCustom: boolean; greeting: string; suffix: string } => {
+    if (!customization) return { hasCustom: false, greeting: 'こんにちは', suffix: '。' };
+
+    const lower = customization.toLowerCase();
+
+    // 元気・明るい系
+    if (lower.includes('元気') || lower.includes('明るい') || lower.includes('テンション高')) {
+      return { hasCustom: true, greeting: 'やっほー！', suffix: '！' };
+    }
+    // 落ち着いた・穏やか系
+    if (lower.includes('落ち着') || lower.includes('穏やか') || lower.includes('優しい') || lower.includes('丁寧')) {
+      return { hasCustom: true, greeting: 'こんにちは、', suffix: '。' };
+    }
+    // フレンドリー・カジュアル系
+    if (lower.includes('フレンドリー') || lower.includes('カジュアル') || lower.includes('親しみ')) {
+      return { hasCustom: true, greeting: 'こんにちは〜！', suffix: '！' };
+    }
+    // クール系
+    if (lower.includes('クール') || lower.includes('知的') || lower.includes('大人')) {
+      return { hasCustom: true, greeting: 'こんにちは、', suffix: '。' };
+    }
+
+    // デフォルト（カスタムありだけど特定パターンなし）
+    return { hasCustom: true, greeting: 'こんにちは！', suffix: '！' };
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -150,6 +183,7 @@ export default function InterviewPage() {
     setIsLoading(true);
 
     try {
+      const interviewerCustomization = Cookies.get('interviewer_customization');
       const response = await authenticatedFetch('/api/chat', {
         method: 'POST',
         body: JSON.stringify({
@@ -159,6 +193,7 @@ export default function InterviewPage() {
           userProfile: userProfile?.nickname && userProfile?.occupation
             ? { nickname: userProfile.nickname, occupation: userProfile.occupation }
             : undefined,
+          interviewerCustomization: interviewerCustomization || undefined,
         }),
       });
 
@@ -230,6 +265,7 @@ export default function InterviewPage() {
     setIsLoading(true);
 
     try {
+      const interviewerCustomization = Cookies.get('interviewer_customization');
       const response = await authenticatedFetch('/api/chat', {
         method: 'POST',
         body: JSON.stringify({
@@ -240,6 +276,7 @@ export default function InterviewPage() {
           userProfile: userProfile?.nickname && userProfile?.occupation
             ? { nickname: userProfile.nickname, occupation: userProfile.occupation }
             : undefined,
+          interviewerCustomization: interviewerCustomization || undefined,
         }),
       });
 

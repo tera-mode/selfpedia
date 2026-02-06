@@ -15,6 +15,7 @@ export default function InterviewerSettingsPage() {
 
   const [selectedInterviewer, setSelectedInterviewer] = useState<InterviewerId | null>(null);
   const [interviewerName, setInterviewerName] = useState('');
+  const [customPersonality, setCustomPersonality] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -32,9 +33,12 @@ export default function InterviewerSettingsPage() {
     if (userInterviewer) {
       setSelectedInterviewer(userInterviewer.id);
       setInterviewerName(userInterviewer.customName);
+      setCustomPersonality(userInterviewer.customPersonality || '');
     } else if (cookieInterviewer) {
       setSelectedInterviewer(cookieInterviewer);
       setInterviewerName(cookieName || '');
+      const cookieCustomization = Cookies.get('interviewer_customization');
+      setCustomPersonality(cookieCustomization || '');
     }
   }, [user, loading, userInterviewer, router]);
 
@@ -63,12 +67,18 @@ export default function InterviewerSettingsPage() {
       // Cookieに保存
       Cookies.set('selected_interviewer', selectedInterviewer, { expires: 365, path: '/' });
       Cookies.set('interviewer_name', interviewerName.trim(), { expires: 365, path: '/' });
+      if (customPersonality.trim()) {
+        Cookies.set('interviewer_customization', customPersonality.trim(), { expires: 365, path: '/' });
+      } else {
+        Cookies.remove('interviewer_customization');
+      }
 
       // ログインユーザーの場合はFirestoreにも保存
       if (user && !user.isAnonymous) {
         await updateUserInterviewer({
           id: selectedInterviewer,
           customName: interviewerName.trim(),
+          customPersonality: customPersonality.trim() || undefined,
         });
       }
 
@@ -112,7 +122,7 @@ export default function InterviewerSettingsPage() {
               インタビュワー設定
             </h1>
             <p className="text-gray-600">
-              あなたのインタビュワーを選んで名前をつけましょう
+              インタビュワーを選んで名前をつけましょう
             </p>
           </div>
 
@@ -205,6 +215,29 @@ export default function InterviewerSettingsPage() {
                   className="w-full rounded-xl border border-orange-200 bg-white/80 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
                   maxLength={20}
                 />
+              </div>
+            )}
+
+            {/* 性格カスタマイズ */}
+            {selectedInterviewer && (
+              <div className="glass-card mb-6 rounded-2xl p-6">
+                <h2 className="mb-2 font-bold text-gray-800">
+                  性格のカスタマイズ（任意）
+                </h2>
+                <p className="mb-4 text-sm text-gray-600">
+                  インタビュワーの性格や雰囲気を自由に設定できます
+                </p>
+                <textarea
+                  value={customPersonality}
+                  onChange={(e) => setCustomPersonality(e.target.value)}
+                  placeholder="例：明るくて元気、優しくて落ち着いた雰囲気、フレンドリーで親しみやすい、など"
+                  className="w-full rounded-xl border border-orange-200 bg-white/80 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                  rows={4}
+                  maxLength={200}
+                />
+                <p className="mt-1 text-right text-xs text-gray-500">
+                  {customPersonality.length}/200
+                </p>
               </div>
             )}
 

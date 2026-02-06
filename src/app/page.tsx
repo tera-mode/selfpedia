@@ -68,21 +68,21 @@ export default function Home() {
         {/* ヘッダー */}
         <div className="flex flex-col gap-4">
           <h1 className="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-5xl font-bold text-transparent md:text-6xl">
-            あなたのインタビュワー
+            じぶん図鑑
           </h1>
           <p className="text-xl text-gray-700 md:text-2xl">
-            AIがあなたを有名人のようにインタビュー
+            AIとの会話で自分の特徴を集めて図鑑を作ろう
           </p>
         </div>
 
         {/* サービス説明 */}
         <div className="glass-card flex max-w-2xl flex-col gap-6 rounded-3xl p-8 shadow-xl">
           <h2 className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-2xl font-semibold text-transparent">
-            魅力を引き出すインタビュー体験
+            AIとの会話で自分を知る体験
           </h2>
           <div className="text-left text-gray-700">
             <p className="mb-4">
-              AIインタビュワーがあなたの魅力を引き出し、以下のコンテンツを生成します：
+              AIとの会話であなたの特徴を集めて、以下のコンテンツを自動生成します：
             </p>
             <ul className="list-inside list-disc space-y-2 text-gray-600">
               <li>雑誌風のインタビュー記事</li>
