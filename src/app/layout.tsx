@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "じぶん図鑑",
-  description: "AIとの会話で自分の特徴を集めて図鑑を作る",
+  title: "じぶんクラフト",
+  description: "AIとの会話や診断で自分の特徴を集め、自己PR・プロフィール等のアウトプットを生成",
 };
 
 export default function RootLayout({

@@ -106,7 +106,7 @@ function LoginContent() {
         {/* ロゴ・タイトル */}
         <div className="flex flex-col gap-2">
           <h1 className="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-4xl font-bold text-transparent">
-            じぶん図鑑
+            じぶんクラフト
           </h1>
           <p className="text-lg text-gray-600">
             {mode === 'login' ? 'ログイン' : '新規登録'}

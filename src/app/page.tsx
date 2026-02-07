@@ -68,10 +68,10 @@ export default function Home() {
         {/* ヘッダー */}
         <div className="flex flex-col gap-4">
           <h1 className="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 bg-clip-text text-5xl font-bold text-transparent md:text-6xl">
-            じぶん図鑑
+            じぶんクラフト
           </h1>
           <p className="text-xl text-gray-700 md:text-2xl">
-            AIとの会話で自分の特徴を集めて図鑑を作ろう
+            AIとの会話や診断で自分の特徴を集めよう
           </p>
         </div>
 
