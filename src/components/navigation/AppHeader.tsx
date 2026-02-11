@@ -35,15 +35,17 @@ export default function AppHeader({ title, showBackButton = false, onBack, right
             <h1 className="text-lg font-bold text-gray-900">{title}</h1>
           )}
         </div>
-        <button onClick={() => router.push('/mypage')} className="absolute left-1/2 -translate-x-1/2">
-          <Image
-            src="/image/mecraft_logo.png"
-            alt="じぶんクラフト"
-            width={140}
-            height={35}
-            priority
-          />
-        </button>
+        {!showBackButton && (
+          <button onClick={() => router.push('/mypage')} className="absolute left-1/2 -translate-x-1/2">
+            <Image
+              src="/image/mecraft_logo.png"
+              alt="じぶんクラフト"
+              width={140}
+              height={35}
+              priority
+            />
+          </button>
+        )}
         <div className="min-w-[40px]">{rightAction}</div>
       </div>
     </header>

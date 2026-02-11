@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 特徴データが10個以上かチェック
-    if (!traits || traits.length < 10) {
+    // 特徴データが5個以上かチェック
+    if (!traits || traits.length < 5) {
       return NextResponse.json(
-        { error: '特徴データが10個以上必要です' },
+        { error: '特徴データが5個以上必要です' },
         { status: 400 }
       );
     }

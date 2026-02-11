@@ -65,7 +65,7 @@ export const EXPERTISE_LEVEL_LABELS: Record<ExpertiseLevel, string> = {
 // ユーザー特徴
 export interface UserTrait {
   id: string;
-  label: string; // 10文字以内のラベル
+  label: string; // キャッチーな二つ名ラベル（3〜6文字）
   category: TraitCategory;
   icon?: string; // 絵文字
   description?: string; // 詳細説明
