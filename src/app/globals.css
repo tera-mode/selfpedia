@@ -42,11 +42,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a1a0f;
-    --foreground: #e0f5e0;
-  }
+/* Force light mode — UI is designed entirely for light color scheme */
+html {
+  color-scheme: light only;
 }
 
 body {
