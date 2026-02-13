@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { FileText, Palette, MessageSquare, Sparkles, ChevronRight } from 'lucide-react';
+import { FileText, Palette, MessageSquare, Sparkles, Briefcase, Gem } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTraits } from '@/contexts/TraitsContext';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
@@ -46,6 +46,26 @@ export default function CraftPage() {
       minTraits: 10,
     },
     {
+      title: 'じぶんレアリティ診断',
+      description: '特徴の組み合わせからレアリティランクを判定',
+      icon: Gem,
+      iconColor: 'text-violet-600',
+      bgGradient: 'from-violet-200 to-fuchsia-200',
+      buttonGradient: 'from-violet-500 to-fuchsia-500',
+      href: '/craft/rarity',
+      minTraits: 8,
+    },
+    {
+      title: '適職×市場価値診断',
+      description: '特徴データから適職と市場価値を分析',
+      icon: Briefcase,
+      iconColor: 'text-teal-600',
+      bgGradient: 'from-teal-200 to-emerald-200',
+      buttonGradient: 'from-teal-500 to-emerald-500',
+      href: '/craft/career-match',
+      minTraits: 15,
+    },
+    {
       title: '自己PRページ',
       description: '転職・就活で使える自己PR文を生成',
       icon: FileText,
@@ -71,7 +91,7 @@ export default function CraftPage() {
     <div className="px-4 py-6">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-stone-500">
             集めた特徴からアウトプットを生成
           </p>
         </div>
@@ -80,7 +100,7 @@ export default function CraftPage() {
           <div className="glass-card mb-6 p-4 text-center">
             <div className="flex items-center justify-center gap-3">
               <div className="h-6 w-6 animate-spin rounded-full border-4 spinner-warm"></div>
-              <p className="text-sm text-gray-600">特徴データを読み込み中...</p>
+              <p className="text-sm text-stone-500">特徴データを読み込み中...</p>
             </div>
           </div>
         ) : traitCount === 0 ? (
@@ -88,7 +108,7 @@ export default function CraftPage() {
             <h3 className="mb-2 text-lg font-semibold text-emerald-700">
               特徴データがありません
             </h3>
-            <p className="mb-4 text-sm text-gray-600">
+            <p className="mb-4 text-sm text-stone-500">
               まずはスワイプ診断やインタビューを活用し、あなたの特徴を発見しましょう。
             </p>
             <button
@@ -103,7 +123,7 @@ export default function CraftPage() {
             {/* Trait summary */}
             <div className="glass-card mb-4 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-stone-700">
                   集めた特徴: <span className="font-bold text-emerald-600">{traitCount}個</span>
                 </span>
                 <button
@@ -142,16 +162,6 @@ export default function CraftPage() {
               })}
             </div>
 
-            {/* アウトプット履歴リンク */}
-            <div className="mb-6 text-center">
-              <button
-                onClick={() => router.push('/craft/history')}
-                className="inline-flex items-center gap-1 text-sm text-gray-500 transition-colors hover:text-emerald-600"
-              >
-                アウトプット履歴を見る
-                <ChevronRight size={14} />
-              </button>
-            </div>
           </>
         )}
       </div>

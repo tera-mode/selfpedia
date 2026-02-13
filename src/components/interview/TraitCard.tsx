@@ -63,7 +63,7 @@ export default function TraitCard({
     <div
       className={`rounded-xl border-2 p-3 transition-all duration-300 ${categoryColors} ${highlightClass} ${
         isNew || isUpdated ? 'shadow-lg' : 'shadow-sm'
-      }`}
+      } ${isNew ? 'animate-trait-discover' : ''}`}
     >
       <div className="flex items-start gap-2">
         {trait.icon && (

@@ -24,7 +24,7 @@ export type InterviewerId = 'female_01' | 'male_01';
 export type InterviewMode = 'basic' | 'self-pr' | 'manual';
 
 // アウトプットタイプ
-export type OutputType = 'sns-profile' | 'self-pr' | 'resume' | 'self-image' | 'talk-with-self' | 'catchcopy';
+export type OutputType = 'sns-profile' | 'self-pr' | 'resume' | 'self-image' | 'talk-with-self' | 'catchcopy' | 'career-match' | 'rarity';
 
 // アウトプットステータス
 export type OutputStatus = 'draft' | 'published' | 'archived';

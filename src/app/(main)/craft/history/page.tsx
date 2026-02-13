@@ -9,35 +9,107 @@ import { getOutputType } from '@/lib/outputTypes';
 import { Output } from '@/types';
 import { authenticatedFetch } from '@/lib/api/authenticatedFetch';
 
+interface HistoryItem {
+  id: string;
+  type: 'output' | 'career-match' | 'rarity';
+  icon: string;
+  name: string;
+  preview: string;
+  createdAt: string;
+  href: string;
+}
+
 export default function OutputHistoryPage() {
   const router = useRouter();
   const { user } = useAuth();
   usePageHeader({ title: 'アウトプット履歴', showBackButton: true, onBack: () => router.push('/craft') });
-  const [outputs, setOutputs] = useState<Output[]>([]);
-  const [isLoadingOutputs, setIsLoadingOutputs] = useState(true);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (user && !user.isAnonymous) {
-      fetchOutputs();
+      fetchAllHistory();
     } else {
-      setIsLoadingOutputs(false);
+      setIsLoading(false);
     }
   }, [user]);
 
-  const fetchOutputs = async () => {
+  const fetchAllHistory = async () => {
     try {
-      const response = await authenticatedFetch(`/api/outputs?userId=${user?.uid}`);
-      if (!response.ok) throw new Error('Failed to fetch outputs');
+      const [outputsRes, careerRes, rarityRes] = await Promise.all([
+        authenticatedFetch(`/api/outputs?userId=${user?.uid}`),
+        authenticatedFetch(`/api/craft/career-match?userId=${user?.uid}`),
+        authenticatedFetch(`/api/craft/rarity?userId=${user?.uid}`),
+      ]);
 
-      const data = await response.json();
-      const activeOutputs = (data.outputs || []).filter(
-        (o: Output) => o.status !== 'archived'
-      );
-      setOutputs(activeOutputs);
+      const items: HistoryItem[] = [];
+
+      // 既存のOutputs
+      if (outputsRes.ok) {
+        const data = await outputsRes.json();
+        const activeOutputs = (data.outputs || []).filter(
+          (o: Output) => o.status !== 'archived'
+        );
+        activeOutputs.forEach((output: Output) => {
+          const config = getOutputType(output.type);
+          const displayContent = output.editedContent || output.content.body;
+          items.push({
+            id: output.id,
+            type: 'output',
+            icon: config?.icon || '📄',
+            name: config?.name || output.type,
+            preview: displayContent.length > 80 ? displayContent.slice(0, 80) + '...' : displayContent,
+            createdAt: output.createdAt as unknown as string,
+            href: `/craft/${output.id}`,
+          });
+        });
+      }
+
+      // Career Match結果
+      if (careerRes.ok) {
+        const data = await careerRes.json();
+        (data.results || []).forEach((item: { id: string; result: { careers: { jobTitle: string }[] }; createdAt: string }) => {
+          const topCareer = item.result?.careers?.[0];
+          items.push({
+            id: item.id,
+            type: 'career-match',
+            icon: '💼',
+            name: '適職×市場価値診断',
+            preview: topCareer ? `1位: ${topCareer.jobTitle}` : '適職診断結果',
+            createdAt: item.createdAt,
+            href: `/craft/career-match`,
+          });
+        });
+      }
+
+      // Rarity結果
+      if (rarityRes.ok) {
+        const data = await rarityRes.json();
+        (data.results || []).forEach((item: { id: string; result: { rank: string; rankLabel: string; percentage: number }; createdAt: string }) => {
+          items.push({
+            id: item.id,
+            type: 'rarity',
+            icon: '💎',
+            name: 'じぶんレアリティ診断',
+            preview: `${item.result?.rank}（${item.result?.rankLabel}）- 上位${item.result?.percentage}%`,
+            createdAt: item.createdAt,
+            href: `/craft/rarity`,
+          });
+        });
+      }
+
+      // 日付でソート（新しい順）
+      items.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      setHistoryItems(items);
     } catch (error) {
-      console.error('Error fetching outputs:', error);
+      console.error('Error fetching history:', error);
     } finally {
-      setIsLoadingOutputs(false);
+      setIsLoading(false);
     }
   };
 
@@ -59,7 +131,7 @@ export default function OutputHistoryPage() {
         {user?.isAnonymous && (
           <div className="glass-card mb-6 p-6 text-center">
             <h3 className="mb-2 text-lg font-semibold text-emerald-700">ログインが必要です</h3>
-            <p className="mb-4 text-sm text-gray-600">
+            <p className="mb-4 text-sm text-stone-500">
               アウトプット機能を利用するには、ログインしてください。
             </p>
             <button
@@ -73,20 +145,20 @@ export default function OutputHistoryPage() {
 
         {!user?.isAnonymous && (
           <>
-            {isLoadingOutputs ? (
+            {isLoading ? (
               <div className="glass-card p-8 text-center">
                 <div className="flex items-center justify-center gap-3">
                   <div className="h-6 w-6 animate-spin rounded-full border-4 spinner-warm"></div>
-                  <p className="text-sm text-gray-600">読み込み中...</p>
+                  <p className="text-sm text-stone-500">読み込み中...</p>
                 </div>
               </div>
-            ) : outputs.length === 0 ? (
+            ) : historyItems.length === 0 ? (
               <div className="glass-card p-8 text-center">
                 <div className="mb-4 text-5xl">📝</div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                <h3 className="mb-2 text-lg font-semibold text-stone-800">
                   まだアウトプットがありません
                 </h3>
-                <p className="mb-4 text-sm text-gray-600">
+                <p className="mb-4 text-sm text-stone-500">
                   インタビュー結果からアウトプットを作成してみましょう
                 </p>
                 <button
@@ -98,47 +170,31 @@ export default function OutputHistoryPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {outputs.map((output) => {
-                  const config = getOutputType(output.type);
-                  const displayContent = output.editedContent || output.content.body;
-                  const preview =
-                    displayContent.length > 100
-                      ? displayContent.slice(0, 100) + '...'
-                      : displayContent;
-
-                  return (
-                    <button
-                      key={output.id}
-                      onClick={() => router.push(`/craft/${output.id}`)}
-                      className="glass-card w-full p-4 text-left transition-all hover:shadow-md"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-200 to-blue-200 text-2xl">
-                          {config?.icon || '📄'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="mb-1 flex items-center gap-2">
-                            <h3 className="font-bold text-gray-900">
-                              {config?.name || output.type}
-                            </h3>
-                            {output.isEdited && (
-                              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700">
-                                編集済み
-                              </span>
-                            )}
-                          </div>
-                          <p className="mb-2 line-clamp-2 text-sm text-gray-600">{preview}</p>
-                          <p className="text-xs text-gray-400">
-                            {output.createdAt
-                              ? new Date(output.createdAt).toLocaleDateString('ja-JP')
-                              : ''}
-                          </p>
-                        </div>
-                        <span className="text-gray-400">→</span>
+                {historyItems.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    onClick={() => router.push(item.href)}
+                    className="glass-card w-full p-4 text-left transition-all hover:shadow-md"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-200 to-blue-200 text-2xl">
+                        {item.icon}
                       </div>
-                    </button>
-                  );
-                })}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="mb-1 font-bold text-stone-800">
+                          {item.name}
+                        </h3>
+                        <p className="mb-2 line-clamp-2 text-sm text-stone-500">{item.preview}</p>
+                        <p className="text-xs text-stone-400">
+                          {item.createdAt
+                            ? new Date(item.createdAt).toLocaleDateString('ja-JP')
+                            : ''}
+                        </p>
+                      </div>
+                      <span className="text-stone-400">→</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </>
