@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Palette, MessageSquare, Sparkles, Briefcase, Gem } from 'lucide-react';
+import { FileText, Palette, MessageSquare, Sparkles, Briefcase, Gem, ClipboardList, BookOpen } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTraits } from '@/contexts/TraitsContext';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
@@ -37,6 +37,18 @@ const CRAFT_MENU_ITEMS: CraftMenuItem[] = [
     requiredProfileKeys: [],
   },
   {
+    title: 'AI向け自分データ',
+    description: '特徴を整理して他のAIに渡せるテキストを生成',
+    icon: ClipboardList,
+    iconColor: 'text-cyan-600',
+    bgGradient: 'from-cyan-200 to-teal-200',
+    buttonGradient: 'from-cyan-500 to-teal-500',
+    href: '/craft/trait-summary',
+    minTraits: 3,
+    guestAllowed: true,
+    requiredProfileKeys: [],
+  },
+  {
     title: '自分画像生成',
     description: '特徴データからイメージ画像を生成',
     icon: Palette,
@@ -45,7 +57,7 @@ const CRAFT_MENU_ITEMS: CraftMenuItem[] = [
     buttonGradient: 'from-purple-500 to-pink-500',
     href: '/craft/self-image',
     minTraits: 5,
-    requiredProfileKeys: ['gender'],
+    requiredProfileKeys: ['gender', 'birthYear'],
   },
   {
     title: 'じぶんレアリティ診断',
@@ -68,6 +80,17 @@ const CRAFT_MENU_ITEMS: CraftMenuItem[] = [
     href: '/craft/talk-with-self',
     minTraits: 10,
     requiredProfileKeys: [],
+  },
+  {
+    title: 'じぶん物語',
+    description: '特徴データからあなたが主人公の物語を生成',
+    icon: BookOpen,
+    iconColor: 'text-orange-600',
+    bgGradient: 'from-orange-200 to-amber-200',
+    buttonGradient: 'from-orange-500 to-amber-500',
+    href: '/craft/story',
+    minTraits: 20,
+    requiredProfileKeys: ['gender', 'birthYear'],
   },
   {
     title: '適職×市場価値診断',

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { userId, traits, userGender } = await request.json();
+    const { userId, traits, userGender, birthYear } = await request.json();
 
     // リクエストのuserIdと認証されたuidが一致するか検証
     if (userId !== authResult.uid) {
@@ -36,9 +36,11 @@ export async function POST(request: NextRequest) {
     // 特徴データから画像生成用のプロンプトを作成（ユーザーの性別を使用）
     // 4つのシチュエーションからランダムで1つ選択
     console.log('Generating situation variations...');
+    const userAge = birthYear ? new Date().getFullYear() - birthYear : undefined;
     const { prompt, situation } = await buildImagePrompt(
       traits as UserTrait[],
-      userGender || 'その他'
+      userGender || 'その他',
+      userAge,
     );
 
     // Imagen 4で画像を生成（スクエア1枚のみ）

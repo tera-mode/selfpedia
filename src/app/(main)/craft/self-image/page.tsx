@@ -51,8 +51,8 @@ export default function SelfImagePage() {
   const handleGenerateImage = async () => {
     if (!user || user.isAnonymous || traitCount < 5) return;
 
-    // プロフィール（性別）チェック
-    if (!userProfile?.gender) {
+    // プロフィール（性別・生まれ年）チェック
+    if (!userProfile?.gender || !userProfile?.birthYear) {
       setShowProfileModal(true);
       return;
     }
@@ -67,6 +67,7 @@ export default function SelfImagePage() {
           userId: user.uid,
           traits,
           userGender: userProfile.gender,
+          birthYear: userProfile.birthYear,
         }),
       });
 
@@ -266,7 +267,10 @@ export default function SelfImagePage() {
 
       {showProfileModal && (
         <ProfileRequirementModal
-          missingKeys={['gender']}
+          missingKeys={[
+            ...(!userProfile?.gender ? ['gender' as ProfileFieldKey] : []),
+            ...(!userProfile?.birthYear ? ['birthYear' as ProfileFieldKey] : []),
+          ]}
           onComplete={() => {
             setShowProfileModal(false);
             handleGenerateImage();

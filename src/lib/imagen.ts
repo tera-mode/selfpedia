@@ -102,20 +102,42 @@ async function generateSituations(traits: { label: string; keywords: string[] }[
  */
 export async function buildImagePrompt(
   traits: { label: string; keywords: string[] }[],
-  userGender: '男性' | '女性' | 'その他' = 'その他'
+  userGender: '男性' | '女性' | 'その他' = 'その他',
+  userAge?: number,
 ): Promise<{ prompt: string; situation: string }> {
   const topTraits = traits.slice(0, 10);
   const labels = topTraits.map(t => t.label).join(', ');
   const keywords = topTraits.flatMap(t => t.keywords).slice(0, 15).join(', ');
 
   const genderEn = userGender === '男性' ? 'male' : userGender === '女性' ? 'female' : 'person';
-  const genderJp = userGender;
+
+  // 年齢に合った描写を生成
+  let ageDescription = '';
+  if (userAge !== undefined) {
+    if (userAge <= 12) {
+      ageDescription = `young child (around ${userAge} years old), elementary school age`;
+    } else if (userAge <= 15) {
+      ageDescription = `teenager (around ${userAge} years old), middle school age`;
+    } else if (userAge <= 18) {
+      ageDescription = `teenager (around ${userAge} years old), high school age`;
+    } else if (userAge <= 25) {
+      ageDescription = `young adult (around ${userAge} years old)`;
+    } else if (userAge <= 40) {
+      ageDescription = `adult (around ${userAge} years old)`;
+    } else {
+      ageDescription = `mature adult (around ${userAge} years old)`;
+    }
+  }
 
   // 特徴から4つのシチュエーションを生成し、ランダムで1つ選択
   const situations = await generateSituations(topTraits);
   const selectedSituation = situations[Math.floor(Math.random() * situations.length)];
 
-  const prompt = `A portrait of a Japanese ${genderEn} (${genderJp}) person ${selectedSituation}.
+  const personDescription = ageDescription
+    ? `a Japanese ${genderEn} ${ageDescription}`
+    : `a Japanese ${genderEn} person`;
+
+  const prompt = `A portrait of ${personDescription} ${selectedSituation}.
 
 Character traits: ${labels}
 Personality keywords: ${keywords}
@@ -125,6 +147,7 @@ Art style requirements:
 - Warm, inviting color palette with soft lighting
 - The person should look approachable and genuine
 - Show them actively engaged in the activity, not just posing
+- The person's appearance MUST match their age (${ageDescription || 'adult'})
 - Modern, clean composition suitable for social media profile
 - NO TEXT or letters anywhere in the image
 - High quality, professional illustration
