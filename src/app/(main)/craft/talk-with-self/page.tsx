@@ -9,12 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTraits } from '@/contexts/TraitsContext';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
 import { authenticatedFetch } from '@/lib/api/authenticatedFetch';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { VoiceButton } from '@/components/voice/VoiceButton';
+import { VoiceToggle } from '@/components/voice/VoiceToggle';
 
 export default function TalkWithSelfPage() {
   const router = useRouter();
   const { user, userProfile } = useAuth();
   const { traits, traitCount } = useTraits();
-  usePageHeader({ title: '自分AIと話す', showBackButton: true, onBack: () => router.push('/craft') });
 
   const [selfImages, setSelfImages] = useState<SelfImage[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -25,58 +27,13 @@ export default function TalkWithSelfPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (user && !user.isAnonymous) {
-      loadData();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  useEffect(() => {
-    if (!isLoading && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isLoading]);
-
-  const loadData = async () => {
-    try {
-      setIsLoadingData(true);
-
-      // 特徴が10個以上の場合のみ、初期メッセージを設定
-      if (traitCount >= 10) {
-        const initialMessage: ChatMessage = {
-          role: 'assistant',
-          content: `こんにちは！わたしは、あなたの特徴を学んだAIです。あなた自身と対話するような感覚で、気軽に話しかけてくださいね。`,
-          timestamp: new Date(),
-        };
-        setMessages([initialMessage]);
-      }
-
-      // 自分画像を取得
-      const imagesResponse = await authenticatedFetch(
-        `/api/generate-self-image?userId=${user?.uid}`
-      );
-      if (imagesResponse.ok) {
-        const imagesData = await imagesResponse.json();
-        setSelfImages(imagesData.selfImages || []);
-      }
-    } catch (err) {
-      console.error('Error loading data:', err);
-      setError('データの読み込みに失敗しました');
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || isLoading || !user) return;
+  const handleSendMessage = async (overrideText?: string) => {
+    const textToSend = overrideText ?? inputText;
+    if (!textToSend.trim() || isLoading || !user) return;
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: inputText,
+      content: textToSend,
       timestamp: new Date(),
     };
 
@@ -105,6 +62,9 @@ export default function TalkWithSelfPage() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // TTS再生（音声モードONのときのみ）
+      speakText(data.message);
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: ChatMessage = {
@@ -115,6 +75,66 @@ export default function TalkWithSelfPage() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const { voiceState, isVoiceModeOn, setIsVoiceModeOn, startRecording, stopRecording, speakText } =
+    useVoiceChat({
+      interviewerId: 'self',
+      onTranscript: (text) => {
+        setInputText(text);
+        handleSendMessage(text);
+      },
+    });
+
+  usePageHeader({
+    title: '自分AIと話す',
+    showBackButton: true,
+    onBack: () => router.push('/craft'),
+    rightAction: <VoiceToggle isOn={isVoiceModeOn} onToggle={setIsVoiceModeOn} />,
+  });
+
+  useEffect(() => {
+    if (user && !user.isAnonymous) {
+      loadData();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!isLoading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading]);
+
+  const loadData = async () => {
+    try {
+      setIsLoadingData(true);
+
+      if (traitCount >= 10) {
+        const initialMessage: ChatMessage = {
+          role: 'assistant',
+          content: `こんにちは！わたしは、あなたの特徴を学んだAIです。あなた自身と対話するような感覚で、気軽に話しかけてくださいね。`,
+          timestamp: new Date(),
+        };
+        setMessages([initialMessage]);
+      }
+
+      const imagesResponse = await authenticatedFetch(
+        `/api/generate-self-image?userId=${user?.uid}`
+      );
+      if (imagesResponse.ok) {
+        const imagesData = await imagesResponse.json();
+        setSelfImages(imagesData.selfImages || []);
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('データの読み込みに失敗しました');
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -222,8 +242,16 @@ export default function TalkWithSelfPage() {
                   disabled={isLoading}
                   className="flex-1 rounded-xl border border-sky-200 bg-white/80 px-4 py-3 text-stone-800 placeholder:text-stone-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
                 />
+                {isVoiceModeOn && (
+                  <VoiceButton
+                    voiceState={voiceState}
+                    onPressStart={startRecording}
+                    onPressEnd={stopRecording}
+                    disabled={isLoading}
+                  />
+                )}
                 <button
-                  onClick={handleSendMessage}
+                  onClick={() => handleSendMessage()}
                   disabled={!inputText.trim() || isLoading}
                   className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white shadow-md transition-all hover:shadow-lg disabled:opacity-50"
                 >

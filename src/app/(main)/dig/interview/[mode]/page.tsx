@@ -13,6 +13,9 @@ import { useTraitExtraction } from '@/hooks/useTraitExtraction';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { authenticatedFetch } from '@/lib/api/authenticatedFetch';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { VoiceButton } from '@/components/voice/VoiceButton';
+import { VoiceToggle } from '@/components/voice/VoiceToggle';
 
 export default function InterviewPage() {
   const router = useRouter();
@@ -54,91 +57,6 @@ export default function InterviewPage() {
   const modeConfig = getInterviewMode(mode);
   const isEndless = isEndlessMode(mode);
 
-  usePageHeader({
-    title: 'AIインタビュー',
-    showBackButton: true,
-    onBack: () => router.push('/dig'),
-    rightAction: modeConfig ? (
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{modeConfig.icon}</span>
-        <span className="text-sm font-medium text-stone-700">{modeConfig.name}</span>
-        {isEndless && (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-600">
-            エンドレス
-          </span>
-        )}
-      </div>
-    ) : undefined,
-  });
-
-  useEffect(() => {
-    if (!modeConfig) {
-      router.push('/dig/interview/select-mode');
-      return;
-    }
-
-    const guestSessionId = Cookies.get('guest_session_id');
-    const selectedInterviewer = Cookies.get('selected_interviewer') as InterviewerId;
-    const savedName = Cookies.get('interviewer_name');
-
-    if (!guestSessionId || !selectedInterviewer || !savedName) {
-      router.push('/dig/interview/select-interviewer');
-      return;
-    }
-
-    setInterviewerId(selectedInterviewer);
-    setInterviewerName(savedName);
-
-    const customization = Cookies.get('interviewer_customization') || '';
-    const greetingStyle = getGreetingStyle(customization);
-
-    // ニックネームは登録時に取得済み。さん付けで呼ぶ
-    const nickname = userProfile?.nickname || user?.displayName || 'ゲスト';
-    setUserNickname(nickname);
-
-    // 職業がある場合はテーマに沿ったアイスブレイク、なければ職業を聞く
-    const firstQuestion = userProfile?.occupation
-      ? (getRandomQuestion(mode, 'iceBreak') || '最近ハマってることってありますか？')
-      : '普段はどんなことして過ごしてますか？お仕事とか学校とか、なんでも教えてください！';
-
-    const initialMessage: ChatMessage = {
-      role: 'assistant',
-      content: greetingStyle.hasCustom
-        ? `${greetingStyle.greeting}${nickname}さん${greetingStyle.suffix} 私は${savedName}です${greetingStyle.suffix} 今日は「${modeConfig.name}」モードで、${nickname}さんの魅力をたくさん引き出していきますね${greetingStyle.suffix}\n\n${firstQuestion}`
-        : `こんにちは、${nickname}さん！私は${savedName}です。今日は「${modeConfig.name}」モードで、${nickname}さんの魅力をたくさん引き出していきますね。\n\n${firstQuestion}`,
-      timestamp: new Date(),
-    };
-    setMessages([initialMessage]);
-  }, [router, mode, modeConfig, userProfile]);
-
-  const getGreetingStyle = (customization: string): { hasCustom: boolean; greeting: string; suffix: string } => {
-    if (!customization) return { hasCustom: false, greeting: 'こんにちは', suffix: '。' };
-    const lower = customization.toLowerCase();
-    if (lower.includes('元気') || lower.includes('明るい') || lower.includes('テンション高')) {
-      return { hasCustom: true, greeting: 'やっほー！', suffix: '！' };
-    }
-    if (lower.includes('落ち着') || lower.includes('穏やか') || lower.includes('優しい') || lower.includes('丁寧')) {
-      return { hasCustom: true, greeting: 'こんにちは、', suffix: '。' };
-    }
-    if (lower.includes('フレンドリー') || lower.includes('カジュアル') || lower.includes('親しみ')) {
-      return { hasCustom: true, greeting: 'こんにちは〜！', suffix: '！' };
-    }
-    if (lower.includes('クール') || lower.includes('知的') || lower.includes('大人')) {
-      return { hasCustom: true, greeting: 'こんにちは、', suffix: '。' };
-    }
-    return { hasCustom: true, greeting: 'こんにちは！', suffix: '！' };
-  };
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  useEffect(() => {
-    if (!isLoading && !isCompleted && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isLoading, isCompleted]);
-
   const saveInterview = async (
     updatedMessages: ChatMessage[],
     interviewData: { fixed?: Record<string, unknown>; dynamic?: Record<string, unknown> } | null,
@@ -168,7 +86,6 @@ export default function InterviewPage() {
         interviewIdRef.current = saveResult.interviewId;
       }
 
-      // traits保存は完了時のみ（進行中はonTraitsChangedコールバックで保存）
       if (status === 'completed') {
         const traitsToSave = currentTraits || traits;
         if (traitsToSave.length > 0) {
@@ -187,17 +104,40 @@ export default function InterviewPage() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || isLoading || !interviewerId) return;
+  const handleInterviewComplete = async (
+    updatedMessages: ChatMessage[],
+    interviewData: { nickname: string; occupation: string; dynamic: Record<string, unknown> }
+  ) => {
+    setIsCompleted(true);
+
+    const interviewDataToSave = {
+      fixed: {
+        nickname: interviewData.nickname,
+        occupation: interviewData.occupation,
+        selectedInterviewer: interviewerId,
+      },
+      dynamic: interviewData.dynamic || {},
+    };
+
+    try {
+      await saveInterview(updatedMessages, interviewDataToSave, 'completed', traits);
+      setTimeout(() => router.push('/craft'), 2000);
+    } catch {
+      alert('インタビューの保存に失敗しました。もう一度お試しください。');
+    }
+  };
+
+  const handleSendMessage = async (overrideText?: string) => {
+    const textToSend = overrideText ?? inputText;
+    if (!textToSend.trim() || isLoading || !interviewerId) return;
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: inputText,
+      content: textToSend,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const currentInput = inputText;
     setInputText('');
     setIsLoading(true);
 
@@ -230,13 +170,15 @@ export default function InterviewPage() {
       setMessages((prev) => [...prev, assistantMessage]);
       const updatedMessages = [...messages, userMessage, assistantMessage];
 
+      // TTS再生（音声モードONのときのみ）
+      speakText(data.message);
+
       if (!data.isCompleted) {
-        // 直近の会話をコンテキストとして渡す（今回のやりとりは除く）
         const recentContext = messages.slice(-6).map((m) => ({
           role: m.role,
           content: m.content,
         }));
-        extractTraits(currentInput, data.message, messages.length + 1, recentContext);
+        extractTraits(textToSend, data.message, messages.length + 1, recentContext);
       }
 
       if (data.isCompleted) {
@@ -257,71 +199,97 @@ export default function InterviewPage() {
     }
   };
 
-  const handleInterviewComplete = async (
-    updatedMessages: ChatMessage[],
-    interviewData: { nickname: string; occupation: string; dynamic: Record<string, unknown> }
-  ) => {
-    setIsCompleted(true);
-
-    const interviewDataToSave = {
-      fixed: {
-        nickname: interviewData.nickname,
-        occupation: interviewData.occupation,
-        selectedInterviewer: interviewerId,
+  const { voiceState, isVoiceModeOn, setIsVoiceModeOn, startRecording, stopRecording, speakText } =
+    useVoiceChat({
+      interviewerId: interviewerId || 'female_01',
+      onTranscript: (text) => {
+        setInputText(text);
+        handleSendMessage(text);
       },
-      dynamic: interviewData.dynamic || {},
+    });
+
+  usePageHeader({
+    title: 'AIインタビュー',
+    showBackButton: true,
+    onBack: () => router.push('/dig'),
+    rightAction: modeConfig ? (
+      <div className="flex items-center gap-2">
+        <VoiceToggle isOn={isVoiceModeOn} onToggle={setIsVoiceModeOn} />
+        <span className="text-lg">{modeConfig.icon}</span>
+        <span className="text-sm font-medium text-stone-700">{modeConfig.name}</span>
+        {isEndless && (
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-600">
+            エンドレス
+          </span>
+        )}
+      </div>
+    ) : undefined,
+  });
+
+  useEffect(() => {
+    if (!modeConfig) {
+      router.push('/dig/interview/select-mode');
+      return;
+    }
+
+    const guestSessionId = Cookies.get('guest_session_id');
+    const selectedInterviewer = Cookies.get('selected_interviewer') as InterviewerId;
+    const savedName = Cookies.get('interviewer_name');
+
+    if (!guestSessionId || !selectedInterviewer || !savedName) {
+      router.push('/dig/interview/select-interviewer');
+      return;
+    }
+
+    setInterviewerId(selectedInterviewer);
+    setInterviewerName(savedName);
+
+    const customization = Cookies.get('interviewer_customization') || '';
+    const greetingStyle = getGreetingStyle(customization);
+
+    const nickname = userProfile?.nickname || user?.displayName || 'ゲスト';
+    setUserNickname(nickname);
+
+    const firstQuestion = userProfile?.occupation
+      ? (getRandomQuestion(mode, 'iceBreak') || '最近ハマってることってありますか？')
+      : '普段はどんなことして過ごしてますか？お仕事とか学校とか、なんでも教えてください！';
+
+    const initialMessage: ChatMessage = {
+      role: 'assistant',
+      content: greetingStyle.hasCustom
+        ? `${greetingStyle.greeting}${nickname}さん${greetingStyle.suffix} 私は${savedName}です${greetingStyle.suffix} 今日は「${modeConfig.name}」モードで、${nickname}さんの魅力をたくさん引き出していきますね${greetingStyle.suffix}\n\n${firstQuestion}`
+        : `こんにちは、${nickname}さん！私は${savedName}です。今日は「${modeConfig.name}」モードで、${nickname}さんの魅力をたくさん引き出していきますね。\n\n${firstQuestion}`,
+      timestamp: new Date(),
     };
+    setMessages([initialMessage]);
+  }, [router, mode, modeConfig, userProfile]);
 
-    try {
-      await saveInterview(updatedMessages, interviewDataToSave, 'completed', traits);
-      setTimeout(() => router.push('/craft'), 2000);
-    } catch {
-      alert('インタビューの保存に失敗しました。もう一度お試しください。');
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!isLoading && !isCompleted && inputRef.current) {
+      inputRef.current.focus();
     }
-  };
+  }, [isLoading, isCompleted]);
 
-  const handleEndInterview = async () => {
-    if (!interviewerId) return;
-    setShowEndConfirm(false);
-    setIsLoading(true);
-
-    try {
-      const interviewerCustomization = Cookies.get('interviewer_customization');
-      const response = await authenticatedFetch('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({
-          messages,
-          interviewerId,
-          mode,
-          forceComplete: true,
-          userProfile: {
-            nickname: userNickname,
-            ...(userProfile?.occupation ? { occupation: userProfile.occupation } : {}),
-          },
-          interviewerCustomization: interviewerCustomization || undefined,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Failed to end interview');
-
-      const data = await response.json();
-
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-      const updatedMessages = [...messages, assistantMessage];
-
-      await handleInterviewComplete(updatedMessages, data.interviewData);
-    } catch (error) {
-      console.error('Error ending interview:', error);
-      alert('インタビューの終了に失敗しました。もう一度お試しください。');
-    } finally {
-      setIsLoading(false);
+  const getGreetingStyle = (customization: string): { hasCustom: boolean; greeting: string; suffix: string } => {
+    if (!customization) return { hasCustom: false, greeting: 'こんにちは', suffix: '。' };
+    const lower = customization.toLowerCase();
+    if (lower.includes('元気') || lower.includes('明るい') || lower.includes('テンション高')) {
+      return { hasCustom: true, greeting: 'やっほー！', suffix: '！' };
     }
+    if (lower.includes('落ち着') || lower.includes('穏やか') || lower.includes('優しい') || lower.includes('丁寧')) {
+      return { hasCustom: true, greeting: 'こんにちは、', suffix: '。' };
+    }
+    if (lower.includes('フレンドリー') || lower.includes('カジュアル') || lower.includes('親しみ')) {
+      return { hasCustom: true, greeting: 'こんにちは〜！', suffix: '！' };
+    }
+    if (lower.includes('クール') || lower.includes('知的') || lower.includes('大人')) {
+      return { hasCustom: true, greeting: 'こんにちは、', suffix: '。' };
+    }
+    return { hasCustom: true, greeting: 'こんにちは！', suffix: '！' };
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -446,8 +414,16 @@ export default function InterviewPage() {
             disabled={isLoading || isCompleted}
             className="glass-input flex-1 rounded-full px-5 py-3 focus:ring-2 focus:ring-emerald-300 focus:outline-none disabled:bg-stone-100 disabled:opacity-60"
           />
+          {isVoiceModeOn && (
+            <VoiceButton
+              voiceState={voiceState}
+              onPressStart={startRecording}
+              onPressEnd={stopRecording}
+              disabled={isLoading || isCompleted}
+            />
+          )}
           <button
-            onClick={handleSendMessage}
+            onClick={() => handleSendMessage()}
             disabled={!inputText.trim() || isLoading || isCompleted}
             className="btn-gradient-primary rounded-full px-6 py-3 font-semibold text-white shadow-md disabled:opacity-50"
           >
@@ -483,7 +459,43 @@ export default function InterviewPage() {
                 続ける
               </button>
               <button
-                onClick={handleEndInterview}
+                onClick={async () => {
+                  if (!interviewerId) return;
+                  setShowEndConfirm(false);
+                  setIsLoading(true);
+                  try {
+                    const interviewerCustomization = Cookies.get('interviewer_customization');
+                    const response = await authenticatedFetch('/api/chat', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        messages,
+                        interviewerId,
+                        mode,
+                        forceComplete: true,
+                        userProfile: {
+                          nickname: userNickname,
+                          ...(userProfile?.occupation ? { occupation: userProfile.occupation } : {}),
+                        },
+                        interviewerCustomization: interviewerCustomization || undefined,
+                      }),
+                    });
+                    if (!response.ok) throw new Error('Failed to end interview');
+                    const data = await response.json();
+                    const assistantMessage: ChatMessage = {
+                      role: 'assistant',
+                      content: data.message,
+                      timestamp: new Date(),
+                    };
+                    setMessages((prev) => [...prev, assistantMessage]);
+                    const updatedMessages = [...messages, assistantMessage];
+                    await handleInterviewComplete(updatedMessages, data.interviewData);
+                  } catch (error) {
+                    console.error('Error ending interview:', error);
+                    alert('インタビューの終了に失敗しました。もう一度お試しください。');
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
                 className="btn-gradient-primary flex-1 rounded-xl px-4 py-3 font-semibold text-white shadow-md"
               >
                 終了する
