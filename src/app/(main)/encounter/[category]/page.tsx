@@ -155,7 +155,7 @@ function HistorySection({ category, categoryLabel }: { category: EncounterCatego
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-2xl">
-                          {category === 'books' ? '📚' : category === 'movies' ? '🎬' : category === 'goods' ? '🎁' : '🛠️'}
+                          {ENCOUNTER_UNLOCK_RULES[category]?.icon ?? '💫'}
                         </div>
                       )}
                     </div>
@@ -339,10 +339,25 @@ export default function EncounterCategoryPage({ params }: EncounterCategoryPageP
             {/* 過去履歴セクション */}
             <HistorySection category={category} categoryLabel={categoryLabel} />
 
-            {/* アフィリエイト注記 */}
-            <p className="mt-6 text-center text-xs text-stone-400">
-              ※ 商品リンクにはアフィリエイトリンクを含みます
-            </p>
+            {/* アフィリエイト注記 + 帰属表示 */}
+            <div className="mt-6 space-y-1 text-center">
+              <p className="text-xs text-stone-400">
+                ※ 商品リンクにはアフィリエイトリンクを含みます
+              </p>
+              {category === 'games' && (
+                <p className="text-xs text-stone-400">
+                  Game data powered by{' '}
+                  <a href="https://rawg.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-stone-600">RAWG</a>
+                </p>
+              )}
+              {category === 'anime' && (
+                <p className="text-xs text-stone-400">
+                  Anime data from{' '}
+                  <a href="https://myanimelist.net" target="_blank" rel="noopener noreferrer" className="underline hover:text-stone-600">MyAnimeList</a>{' '}
+                  via Jikan API
+                </p>
+              )}
+            </div>
           </>
         )}
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { BookOpen, Film, Gift, GraduationCap, ArrowRight } from 'lucide-react';
+import { BookOpen, Film, Tv, Gamepad2, Gift, GraduationCap, ArrowRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTraits } from '@/contexts/TraitsContext';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
@@ -30,6 +30,20 @@ const ENCOUNTER_MENU: EncounterMenuItem[] = [
     iconColor: 'text-violet-600',
     bgGradient: 'from-violet-200 to-purple-200',
     buttonGradient: 'from-violet-500 to-purple-500',
+  },
+  {
+    category: 'anime',
+    icon: Tv,
+    iconColor: 'text-pink-600',
+    bgGradient: 'from-pink-200 to-fuchsia-200',
+    buttonGradient: 'from-pink-500 to-fuchsia-500',
+  },
+  {
+    category: 'games',
+    icon: Gamepad2,
+    iconColor: 'text-emerald-600',
+    bgGradient: 'from-emerald-200 to-teal-200',
+    buttonGradient: 'from-emerald-500 to-teal-500',
   },
   {
     category: 'goods',

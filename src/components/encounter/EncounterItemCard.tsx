@@ -23,6 +23,8 @@ function formatRating(rating: number | null): string {
 const CATEGORY_EMOJI: Record<EncounterCategory, string> = {
   books: '📚',
   movies: '🎬',
+  anime: '📺',
+  games: '🎮',
   goods: '🎁',
   skills: '🛠️',
 };
@@ -30,6 +32,8 @@ const CATEGORY_EMOJI: Record<EncounterCategory, string> = {
 const CATEGORY_CTA: Record<EncounterCategory, string> = {
   books: '楽天で見る',
   movies: '詳細を見る',
+  anime: '楽天で探す',
+  games: '楽天で探す',
   goods: '楽天で見る',
   skills: '楽天で見る',
 };

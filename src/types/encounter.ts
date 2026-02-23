@@ -1,8 +1,8 @@
 // であう機能の型定義
 
-export type EncounterCategory = 'books' | 'movies' | 'goods' | 'skills';
+export type EncounterCategory = 'books' | 'movies' | 'anime' | 'games' | 'goods' | 'skills';
 
-export type ProductSource = 'rakuten' | 'rakuten_books' | 'tmdb' | 'openbd';
+export type ProductSource = 'rakuten' | 'rakuten_books' | 'tmdb' | 'openbd' | 'rawg' | 'jikan';
 
 export interface RecommendedItem {
   id: string;

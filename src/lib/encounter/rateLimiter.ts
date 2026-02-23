@@ -8,6 +8,8 @@ class RateLimiter {
     rakuten: 1100,    // 1秒1リクエスト + バッファ
     tmdb: 250,        // 4リクエスト/秒
     openbd: 100,      // 制限なし（礼儀として）
+    rawg: 250,        // 明確な制限なし（礼儀として4/秒）
+    jikan: 700,       // 3リクエスト/秒（MAL準拠・厳守）
   };
 
   async wait(service: string): Promise<void> {

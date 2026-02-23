@@ -5,6 +5,8 @@ import { adminDb } from '@/lib/firebase/admin';
 import { searchRakutenItems } from '@/lib/encounter/rakuten';
 import { searchRakutenBooks } from '@/lib/encounter/rakutenBooks';
 import { searchTMDbMovies, getTMDbPosterUrl } from '@/lib/encounter/tmdb';
+import { searchRAWGGames, rawgGameToItem } from '@/lib/encounter/rawg';
+import { searchJikanAnime, jikanAnimeToItem } from '@/lib/encounter/jikan';
 import { getCachedProductSearch, cacheProductSearch, CachedProduct } from '@/lib/encounter/productCache';
 import { UserTrait } from '@/types';
 import { EncounterCategory, RecommendedItem, SearchKeywordResult } from '@/types/encounter';
@@ -129,11 +131,21 @@ async function generateSearchKeywords(
   const categoryLabel =
     category === 'books' ? '書籍'
     : category === 'movies' ? '映画'
+    : category === 'anime' ? 'アニメ'
+    : category === 'games' ? 'ゲーム'
     : category === 'goods' ? '商品'
     : 'スキルアップグッズ・道具';
 
   const skillsNote = category === 'skills'
     ? '\n- ★重要: これはスキルアップグッズ・道具カテゴリです。書籍・本・テキストは絶対に含めないでください。その人のスキルを実践・上達させるための楽器・画材・スポーツ用品・工具・ガジェット・キット・文房具・器具などの物理的なモノを提案してください。'
+    : '';
+
+  const animeNote = category === 'anime'
+    ? '\n- アニメカテゴリ: keywordには検索ワード（日本語可）を入れる。genreIdにはMALジャンルID数字を指定（1=Action, 2=Adventure, 4=Comedy, 8=Drama, 10=Fantasy, 22=Romance, 24=Sci-Fi, 36=Slice of Life, 37=Supernatural, 40=Psychological, 41=Thriller）。keywordかgenreIdのどちらか一方を設定すること。'
+    : '';
+
+  const gamesNote = category === 'games'
+    ? '\n- ゲームカテゴリ: keywordには英語のゲームジャンルや関連キーワードを入れる（例: "RPG adventure", "indie puzzle", "strategy"）。genreIdにはRAWGジャンルスラッグを指定（action, indie, adventure, role-playing-games-rpg, strategy, shooter, casual, simulation, puzzle, arcade, platformer, racing, sports, fighting, family）。keywordかgenreIdのどちらか一方を設定すること。'
     : '';
 
   const prompt = `あなたはパーソナリティ分析の専門家です。
@@ -156,7 +168,7 @@ ${traitsSummary}
   "searchQueries": [
     {
       "keyword": "検索キーワード（2〜4語）",
-      "genreId": "ジャンルID（わかれば・書籍はbooksGenreId、映画はTMDbジャンルID数字）",
+      "genreId": "ジャンルID（わかれば・書籍はbooksGenreId、映画はTMDbジャンルID数字、アニメはMALジャンルID数字、ゲームはRAWGジャンルスラッグ）",
       "reason": "この検索をする理由（ユーザーの特徴との関連・50文字以内）",
       "matchedTraits": ["関連する特徴のlabel"]
     }
@@ -168,7 +180,7 @@ ${traitsSummary}
 - searchQueriesは5〜8個生成
 - ユーザーの特徴に基づく具体的なキーワードにする（汎用的すぎるのはNG）
 - 1つ以上の特徴と紐づけること
-- 日本語のキーワードで検索に使えるものにすること${skillsNote}
+- 日本語のキーワードで検索に使えるものにすること${skillsNote}${animeNote}${gamesNote}
 - JSON以外のテキストは含めないでください`;
 
   const model = getGeminiModel();
@@ -263,6 +275,30 @@ async function searchProducts(
             score: 0.7,
           });
         }
+      } else if (category === 'anime') {
+        // Jikan API: genreIdがあればジャンル検索、なければキーワード検索
+        const genreId = query.genreId && !isNaN(parseInt(query.genreId, 10)) ? query.genreId : undefined;
+        const animes = await searchJikanAnime({
+          q: genreId ? undefined : query.keyword,
+          genres: genreId,
+          min_score: 7,
+          limit: 5,
+        });
+        for (const anime of animes.slice(0, 3)) {
+          fetched.push(jikanAnimeToItem(anime, query));
+        }
+      } else if (category === 'games') {
+        // RAWG API: genreIdがあればジャンル検索、なければキーワード検索
+        const genreSlug = query.genreId && query.genreId.trim() ? query.genreId.trim() : undefined;
+        const games = await searchRAWGGames({
+          search: genreSlug ? undefined : query.keyword,
+          genres: genreSlug,
+          ordering: '-rating',
+          page_size: 5,
+        });
+        for (const game of games.slice(0, 3)) {
+          fetched.push(rawgGameToItem(game, query));
+        }
       } else {
         // goods / skills → 楽天市場
         const rakutenItems = await searchRakutenItems({
@@ -334,6 +370,8 @@ async function generateRecommendationReasons(
   const categoryLabel =
     category === 'books' ? '書籍'
     : category === 'movies' ? '映画'
+    : category === 'anime' ? 'アニメ'
+    : category === 'games' ? 'ゲーム'
     : category === 'goods' ? '商品'
     : 'スキルアップグッズ';
 
@@ -399,7 +437,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as GenerateRequest;
     const { category, forceRefresh } = body;
 
-    if (!['books', 'movies', 'goods', 'skills'].includes(category)) {
+    if (!['books', 'movies', 'anime', 'games', 'goods', 'skills'].includes(category)) {
       return NextResponse.json({ error: '不正なカテゴリです' }, { status: 400 });
     }
 
