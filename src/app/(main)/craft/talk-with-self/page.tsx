@@ -78,9 +78,11 @@ export default function TalkWithSelfPage() {
     }
   };
 
+  const selfInterviewerId = userProfile?.gender === '女性' ? 'self_female' : 'self';
+
   const { voiceState, isVoiceModeOn, setIsVoiceModeOn, startRecording, stopRecording, speakText } =
     useVoiceChat({
-      interviewerId: 'self',
+      interviewerId: selfInterviewerId,
       onTranscript: (text) => {
         setInputText(text);
         handleSendMessage(text);
