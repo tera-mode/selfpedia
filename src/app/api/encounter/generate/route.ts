@@ -5,7 +5,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { searchRakutenItems } from '@/lib/encounter/rakuten';
 import { searchRakutenBooks } from '@/lib/encounter/rakutenBooks';
 import { searchTMDbMovies, getTMDbPosterUrl } from '@/lib/encounter/tmdb';
-import { searchRAWGGames, rawgGameToItem } from '@/lib/encounter/rawg';
+import { searchRakutenBooksGame, rakutenBooksGameToItem } from '@/lib/encounter/rakutenBooksGame';
 import { searchJikanAnime, jikanAnimeToItem } from '@/lib/encounter/jikan';
 import { getCachedProductSearch, cacheProductSearch, CachedProduct } from '@/lib/encounter/productCache';
 import { UserTrait } from '@/types';
@@ -145,7 +145,7 @@ async function generateSearchKeywords(
     : '';
 
   const gamesNote = category === 'games'
-    ? '\n- ゲームカテゴリ: keywordには英語のゲームジャンルや関連キーワードを入れる（例: "RPG adventure", "indie puzzle", "strategy"）。genreIdにはRAWGジャンルスラッグを指定（action, indie, adventure, role-playing-games-rpg, strategy, shooter, casual, simulation, puzzle, arcade, platformer, racing, sports, fighting, family）。keywordかgenreIdのどちらか一方を設定すること。'
+    ? '\n- ゲームカテゴリ: keywordは楽天ブックスゲームの「タイトル部分一致検索」に使う。必ず以下のリストから1語だけ選ぶこと（複数語・説明文は絶対NG）。【ジャンル語】RPG / アクション / パズル / シミュレーション / アドベンチャー / スポーツ / 格闘 / シューティング / ホラー / レーシング / 音楽 【シリーズ名】ポケモン / マリオ / ゼルダ / ドラゴンクエスト / ファイナルファンタジー / モンスターハンター / ペルソナ / カービィ / スプラトゥーン / ピクミン。genreIdにはゲームハード名を入れる（PS5, Switch, PS4, Xbox のいずれか・省略可）。'
     : '';
 
   const prompt = `あなたはパーソナリティ分析の専門家です。
@@ -288,16 +288,26 @@ async function searchProducts(
           fetched.push(jikanAnimeToItem(anime, query));
         }
       } else if (category === 'games') {
-        // RAWG API: genreIdがあればジャンル検索、なければキーワード検索
-        const genreSlug = query.genreId && query.genreId.trim() ? query.genreId.trim() : undefined;
-        const games = await searchRAWGGames({
-          search: genreSlug ? undefined : query.keyword,
-          genres: genreSlug,
-          ordering: '-rating',
-          page_size: 5,
+        // 楽天ブックスゲームAPI: titleキーワード検索 + オプションでhardware絞り込み
+        const validHardware = ['PS5', 'PS4', 'Switch', 'Xbox', 'PC'];
+        const hardware = query.genreId && validHardware.includes(query.genreId.trim())
+          ? query.genreId.trim()
+          : undefined;
+        // BooksGame APIはタイトル部分一致検索のため、先頭1語のみ使用（複合語・説明文対策）
+        const gameKeyword = query.keyword.split(/[\s　]+/)[0];
+        const gamesRaw = await searchRakutenBooksGame({
+          title: gameKeyword,
+          hardware,
+          hits: 10,
+          sort: 'sales',
         });
+        // 玩具・フィギュア等の非ゲームソフト商品を除外
+        const gameHardwareKeywords = ['Switch', 'PlayStation', 'PS4', 'PS5', 'PS3', 'Xbox', 'Windows', 'PC', '3DS', 'Wii', 'Vita'];
+        const games = gamesRaw.filter(g =>
+          gameHardwareKeywords.some(kw => g.hardware.includes(kw))
+        );
         for (const game of games.slice(0, 3)) {
-          fetched.push(rawgGameToItem(game, query));
+          fetched.push(rakutenBooksGameToItem(game, query));
         }
       } else {
         // goods / skills → 楽天市場

@@ -2,7 +2,7 @@
 
 export type EncounterCategory = 'books' | 'movies' | 'anime' | 'games' | 'goods' | 'skills';
 
-export type ProductSource = 'rakuten' | 'rakuten_books' | 'tmdb' | 'openbd' | 'rawg' | 'jikan';
+export type ProductSource = 'rakuten' | 'rakuten_books' | 'rakuten_books_game' | 'tmdb' | 'openbd' | 'rawg' | 'jikan';
 
 export interface RecommendedItem {
   id: string;
