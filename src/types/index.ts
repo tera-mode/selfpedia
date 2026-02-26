@@ -24,7 +24,7 @@ export type InterviewerId = 'female_01' | 'male_01';
 export type InterviewMode = 'basic' | 'self-pr' | 'manual';
 
 // アウトプットタイプ
-export type OutputType = 'sns-profile' | 'self-pr' | 'resume' | 'self-image' | 'talk-with-self' | 'catchcopy' | 'trait-summary' | 'career-match' | 'rarity' | 'story';
+export type OutputType = 'sns-profile' | 'self-pr' | 'resume' | 'self-image' | 'talk-with-self' | 'catchcopy' | 'trait-summary' | 'career-match' | 'rarity' | 'story' | 'wish-list';
 
 // アウトプットステータス
 export type OutputStatus = 'draft' | 'published' | 'archived';
@@ -204,3 +204,6 @@ export * from './story';
 
 // であう関連の型をエクスポート
 export * from './encounter';
+
+// やりたいことリスト関連の型をエクスポート
+export * from './wishList';

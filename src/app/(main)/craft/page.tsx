@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Palette, MessageSquare, Sparkles, Briefcase, Gem, ClipboardList, BookOpen } from 'lucide-react';
+import { FileText, Palette, MessageSquare, Sparkles, Briefcase, Gem, ClipboardList, BookOpen, ListTodo } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTraits } from '@/contexts/TraitsContext';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
@@ -47,6 +47,18 @@ const CRAFT_MENU_ITEMS: CraftMenuItem[] = [
     minTraits: 3,
     guestAllowed: true,
     requiredProfileKeys: [],
+  },
+  {
+    title: 'やりたいことリスト',
+    description: '特徴から「やりたいかも」を発見',
+    icon: ListTodo,
+    iconColor: 'text-lime-600',
+    bgGradient: 'from-lime-200 to-green-200',
+    buttonGradient: 'from-lime-500 to-green-500',
+    href: '/craft/wish-list',
+    minTraits: 5,
+    guestAllowed: false,
+    requiredProfileKeys: ['gender', 'birthYear'],
   },
   {
     title: '自分画像生成',

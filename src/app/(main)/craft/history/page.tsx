@@ -11,7 +11,7 @@ import { authenticatedFetch } from '@/lib/api/authenticatedFetch';
 
 interface HistoryItem {
   id: string;
-  type: 'output' | 'career-match' | 'rarity';
+  type: 'output' | 'career-match' | 'rarity' | 'wish-list';
   icon: string;
   name: string;
   preview: string;
@@ -36,10 +36,11 @@ export default function OutputHistoryPage() {
 
   const fetchAllHistory = async () => {
     try {
-      const [outputsRes, careerRes, rarityRes] = await Promise.all([
+      const [outputsRes, careerRes, rarityRes, wishListRes] = await Promise.all([
         authenticatedFetch(`/api/outputs?userId=${user?.uid}`),
         authenticatedFetch(`/api/craft/career-match?userId=${user?.uid}`),
         authenticatedFetch(`/api/craft/rarity?userId=${user?.uid}`),
+        authenticatedFetch('/api/craft/wish-list'),
       ]);
 
       const items: HistoryItem[] = [];
@@ -96,6 +97,25 @@ export default function OutputHistoryPage() {
             href: `/craft/rarity`,
           });
         });
+      }
+
+      // やりたいことリスト
+      if (wishListRes.ok) {
+        const data = await wishListRes.json();
+        if (data.wishList) {
+          const wl = data.wishList;
+          const completedCount = (wl.items || []).filter((i: { completed: boolean }) => i.completed).length;
+          const totalCount = (wl.items || []).length;
+          items.push({
+            id: wl.id,
+            type: 'wish-list',
+            icon: '🎯',
+            name: 'やりたいことリスト',
+            preview: `${totalCount}個のリスト・${completedCount}個達成済み`,
+            createdAt: wl.updatedAt || wl.createdAt,
+            href: '/craft/wish-list',
+          });
+        }
       }
 
       // 日付でソート（新しい順）
